@@ -2,11 +2,11 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Toutes les heures
-  workflow_dispatch:      # Permet le lancement manuel
+    - cron: '0 * * * *'  # Se lance toutes les heures à xx:00
+  workflow_dispatch:      # Permet le lancement manuel (Bouton Run)
 
 permissions:
-  contents: write
+  contents: write         # Droit d'écrire les images dans le dépôt
 
 jobs:
   build:
@@ -25,25 +25,32 @@ jobs:
         run: |
           pip install requests selenium webdriver-manager
 
-      # ETAPE 1 : SCRIPT FRONTS (Votre script original)
+      # ETAPE 1 : SCRIPT FRONTS (Original)
+      # continue-on-error: true -> Si lui plante, on veut quand même essayer la TEMSI
       - name: Lancement Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
+        continue-on-error: true
 
-      # ETAPE 2 : SCRIPT TEMSI (Le nouveau script)
+      # ETAPE 2 : SCRIPT TEMSI (Explorateur)
+      # continue-on-error: true -> S'il plante, on veut passer à l'étape suivante pour sauvegarder le screenshot
       - name: Lancement Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
+        continue-on-error: true
 
-      # ETAPE 3 : SAUVEGARDE DE TOUT
+      # ETAPE 3 : SAUVEGARDE (Cartes valides + Screenshot Erreur)
+      # if: always() -> Cette étape se lance OBLIGATOIREMENT, même si tout le reste est rouge
       - name: Enregistrement des images
+        if: always()
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
+          # La commande *.png prendra temsi_france.png OU erreur_page.png
           git add *.png
-          git commit -m "Mise a jour Cartes Meteo" || echo "Pas de changement"
+          git commit -m "Mise a jour Cartes / Diagnostic" || echo "Pas de changement"
           git push
