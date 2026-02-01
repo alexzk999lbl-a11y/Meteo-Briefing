@@ -1,32 +1,34 @@
 import os
 import time
 import requests
+from datetime import datetime, timezone, timedelta
+
+# Outils Selenium (Identique à main.py)
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 
-# --- CONFIGURATION ---
+# --- 1. SECRETS ---
 IDENTIFIANT = os.environ["METEO_LOGIN"]
 MOT_DE_PASSE = os.environ["METEO_PASS"]
-NOM_FICHIER = "temsi_france.png"
-URL_LOGIN = "https://aviation.meteo.fr/login.php"
-# On va directement sur la page qui affiche la carte TEMSI
-URL_PAGE_TEMSI = "https://aviation.meteo.fr/temsi.php" 
 
-def recuperer_image_depuis_page():
-    print("1. Démarrage du Navigateur...")
+# --- 2. CONFIGURATION ---
+URL_LOGIN = "https://aviation.meteo.fr/login.php"
+URL_GENERATION_IMAGE = "https://aviation.meteo.fr/affiche_image.php"
+NOM_FICHIER = "temsi_france.png"
+
+def recuperer_cookie():
+    print("--- 1. Connexion Selenium (Même protocole que Fronts) ---")
     chrome_options = Options()
-    chrome_options.add_argument("--headless") # Mode invisible
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     
     try:
-        # --- PHASE 1 : LOGIN ---
-        print("2. Connexion au site...")
         driver.get(URL_LOGIN)
         driver.find_element(By.NAME, "login").send_keys(IDENTIFIANT)
         driver.find_element(By.NAME, "password").send_keys(MOT_DE_PASSE)
@@ -35,55 +37,77 @@ def recuperer_image_depuis_page():
             driver.find_element(By.XPATH, "//input[@type='image']").click()
         except:
             driver.find_element(By.CSS_SELECTOR, "input[type='submit']").click()
-        
-        time.sleep(3) # On attend que le login se valide
-        
-        # --- PHASE 2 : ALLER SUR LA PAGE TEMSI ---
-        print(f"3. Visite de la page TEMSI : {URL_PAGE_TEMSI}")
-        driver.get(URL_PAGE_TEMSI)
-        
-        # On attend un peu que la carte se charge
-        time.sleep(3)
-        
-        # --- PHASE 3 : TROUVER L'IMAGE SUR LA PAGE ---
-        # On cherche l'image principale. Sur Aeroweb, les cartes sont générées via "affiche_image.php"
-        # On demande à Selenium de trouver l'image dont la source contient ce mot clé.
-        print("4. Recherche de la carte sur la page...")
-        element_image = driver.find_element(By.CSS_SELECTOR, "img[src*='affiche_image.php']")
-        
-        # On récupère l'URL exacte de cette image (le lien que le site a généré lui-même)
-        url_image_valide = element_image.get_attribute("src")
-        print(f"   Trouvé ! URL de l'image : {url_image_valide[:50]}...")
-        
-        # --- PHASE 4 : TELECHARGEMENT ---
-        # On doit utiliser les cookies de Selenium pour télécharger
-        print("5. Téléchargement du fichier...")
-        
-        # On transfère les cookies de Selenium vers Requests
-        session = requests.Session()
-        session.headers.update({'User-Agent': 'Mozilla/5.0'})
-        selenium_cookies = driver.get_cookies()
-        for cookie in selenium_cookies:
-            session.cookies.set(cookie['name'], cookie['value'])
             
-        # On télécharge l'URL qu'on vient de trouver
-        resp = session.get(url_image_valide)
+        time.sleep(5)
         
-        if resp.status_code == 200:
-            with open(NOM_FICHIER, 'wb') as f:
-                f.write(resp.content)
-            print(f"[SUCCES] TEMSI téléchargée ({len(resp.content)} octets).")
-        else:
-            print(f"[ECHEC] Erreur téléchargement : {resp.status_code}")
-            exit(1)
-
+        cookies = driver.get_cookies()
+        for cookie in cookies:
+            if cookie['name'] == 'PHPSESSID':
+                print("   [OK] Cookie sécurisé récupéré.")
+                return cookie['value']
+        return None
     except Exception as e:
-        print(f"[ERREUR] Un problème est survenu : {e}")
-        # On affiche le code source de la page si on ne trouve pas l'image (pour le diagnostic)
-        # print(driver.page_source[:500]) 
-        exit(1)
+        print(f"   [ERREUR] Selenium: {e}")
+        return None
     finally:
         driver.quit()
 
+def telecharger_carte_intelligente(session):
+    # Logique TEMSI : Validité 3h (00, 03, 06, 09, 12, 15, 18, 21)
+    # On tente l'heure actuelle, puis -3h, puis -6h (Recul)
+    
+    now_utc = datetime.now(timezone.utc)
+    heure_base = now_utc.replace(minute=0, second=0, microsecond=0)
+    # Arrondi au multiple de 3 inférieur
+    heure_base = heure_base - timedelta(hours=heure_base.hour % 3)
+    
+    # LISTE DES TYPES A TESTER (Priorité France, Secours Europe)
+    TYPES_CARTES = ['temsi/france', 'temsi/euroc'] 
+
+    # Boucle Temporelle (0h, -3h, -6h)
+    for i in range(3):
+        date_obj = heure_base - timedelta(hours=3 * i)
+        date_str = date_obj.strftime("%Y%m%d%H0000")
+        heure_lisible = date_obj.strftime("%Hh00 UTC")
+        
+        # Boucle Type (France puis Europe)
+        for type_carte in TYPES_CARTES:
+            print(f"--- Tentative : {type_carte} à {heure_lisible} ---")
+            
+            params = {
+                'time': str(int(time.time())), 
+                'type': type_carte,
+                'date': date_str,
+                'mode': 'img'
+            }
+            
+            try:
+                resp = session.get(URL_GENERATION_IMAGE, params=params)
+                
+                # Vérification rigoureuse (Code 200 + Contenu Image + Taille > 1ko)
+                if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', '') and len(resp.content) > 1000:
+                    with open(NOM_FICHIER, 'wb') as f:
+                        f.write(resp.content)
+                    print(f"   [SUCCES TOTAL] Image enregistrée : {NOM_FICHIER} ({type_carte})")
+                    return True # On arrête tout, on a l'image
+                else:
+                    print(f"   [ECHEC] Serveur code: {resp.status_code} | Taille: {len(resp.content)}")
+            except Exception as e:
+                print(f"   [ERREUR] {e}")
+
+    print("[FATAL] Aucune carte récupérée après toutes les tentatives.")
+    return False
+
 if __name__ == "__main__":
-    recuperer_image_depuis_page()
+    cookie = recuperer_cookie()
+    if cookie:
+        session = requests.Session()
+        session.headers.update({'User-Agent': 'Mozilla/5.0'})
+        session.cookies.set('PHPSESSID', cookie)
+        
+        reussite = telecharger_carte_intelligente(session)
+        if not reussite:
+            exit(1) # Force le ROUGE dans GitHub
+    else:
+        print("[FATAL] Echec connexion.")
+        exit(1)
