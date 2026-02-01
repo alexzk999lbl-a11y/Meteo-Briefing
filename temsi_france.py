@@ -15,22 +15,11 @@ MOT_DE_PASSE = os.environ["METEO_PASS"]
 NOM_FICHIER = "temsi_france.png"
 URL_LOGIN = "https://aviation.meteo.fr/login.php"
 
-def sauver_debug(driver, prefixe="erreur"):
-    """Sauvegarde capture d'écran ET code source HTML pour analyse"""
-    try:
-        driver.save_screenshot(f"{prefixe}_screen.png")
-        with open(f"{prefixe}_source.html", "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-        print(f"[DEBUG] Preuves sauvegardées : {prefixe}_screen.png et {prefixe}_source.html")
-    except:
-        print("[DEBUG] Echec sauvegarde preuves")
-
 def force_click(driver, element):
-    """Force le clic via JavaScript (contourne les erreurs d'interactivité)"""
     driver.execute_script("arguments[0].click();", element)
 
-def recuperer_temsi_force():
-    print("--- 1. Démarrage Selenium (Mode Force Brute JS) ---")
+def recuperer_temsi_final():
+    print("--- 1. Démarrage Selenium (Mode Sniper) ---")
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -46,50 +35,62 @@ def recuperer_temsi_force():
         driver.get(URL_LOGIN)
         driver.find_element(By.NAME, "login").send_keys(IDENTIFIANT)
         driver.find_element(By.NAME, "password").send_keys(MOT_DE_PASSE)
-        
-        # Clic Login
         try:
-            btn = driver.find_element(By.XPATH, "//input[@type='image'] | //input[@type='submit']")
-            force_click(driver, btn)
+            driver.find_element(By.XPATH, "//input[@type='image'] | //input[@type='submit']").click()
         except:
-            print("[ERREUR] Bouton login introuvable")
-            raise
-
-        # Attente redirection
+            pass # Parfois le Enter suffit
+        
         time.sleep(5)
-        if "accueil" not in driver.current_url and "menu" not in driver.current_url:
-            print(f"[ALERTE] URL inattendue après login : {driver.current_url}")
-            # On continue quand même, parfois l'URL reste bizarre
 
-        # --- RECHERCHE DU MENU ---
-        print("3. Recherche Menu 'TEMSI-WINTEM'...")
-        # On cherche un lien qui contient le texte, peu importe où
+        # --- OUVERTURE MENU ---
+        print("3. Ouverture du menu 'TEMSI-WINTEM'...")
         try:
-            menu_temsi = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'TEMSI-WINTEM')]")))
-            print("   Menu repéré. Injection Clic JavaScript...")
-            force_click(driver, menu_temsi)
-            time.sleep(3) # Pause indispensable pour le déroulement
-        except Exception as e:
-            print(f"[ERREUR] Menu non trouvé : {e}")
-            sauver_debug(driver, "debug_menu")
+            menu = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'TEMSI-WINTEM')]")))
+            force_click(driver, menu)
+            time.sleep(3) # Important : on laisse le menu s'ouvrir
+        except:
+            print("[ERREUR] Menu principal introuvable.")
             raise
 
-        # --- RECHERCHE LIEN FRANCE ---
-        print("4. Recherche Lien 'FRANCE'...")
-        try:
-            # On cherche spécifiquement le lien France qui est SOUS le menu (donc visible maintenant)
-            # On cherche un lien <a> qui contient "FRANCE"
-            lien_france = wait.until(EC.presence_of_element_located((By.XPATH, "//a[contains(text(),'FRANCE')]")))
-            print(f"   Lien France repéré ({lien_france.get_attribute('href')}). Clic JS...")
-            force_click(driver, lien_france)
+        # --- RECHERCHE INTELLIGENTE DU LIEN ---
+        print("4. Scan des liens du menu...")
+        
+        # On récupère TOUS les liens de la page maintenant que le menu est ouvert
+        liens = driver.find_elements(By.TAG_NAME, "a")
+        lien_trouve = None
+        
+        print(f"   (J'ai trouvé {len(liens)} liens au total sur la page)")
+        
+        for lien in liens:
+            # On nettoie le texte (minuscules, sans espaces inutiles)
+            txt = lien.get_attribute("innerText") or ""
+            txt = txt.lower().strip()
+            href = lien.get_attribute("href") or ""
+            
+            # On ignore les liens vides
+            if not txt and not href: continue
+            
+            # SI le lien contient "france" (ex: "domaine : france", "france v2"...)
+            if "france" in txt or "france" in href.lower():
+                # On vérifie qu'il est visible (pour ne pas cliquer sur un lien caché)
+                if lien.is_displayed():
+                    print(f"   > CIBLE IDENTIFIEE : '{txt}'")
+                    lien_trouve = lien
+                    break
+        
+        if lien_trouve:
+            print("   Clic sur le lien France...")
+            force_click(driver, lien_trouve)
             time.sleep(5)
-        except Exception as e:
-            print(f"[ERREUR] Lien France non trouvé : {e}")
-            sauver_debug(driver, "debug_france")
-            raise
+        else:
+            print("[ALERTE] Je ne trouve pas 'France'. Voici les liens visibles du menu :")
+            # Mouchard : on affiche les liens pour comprendre
+            visibles = [l.get_attribute("innerText") for l in liens if l.is_displayed()]
+            print(" | ".join(visibles[:20])) # On affiche les 20 premiers
+            raise Exception("Lien France introuvable")
 
         # --- RECUPERATION IMAGE ---
-        print("5. Extraction de l'image...")
+        print("5. Recherche de l'image finale...")
         images = driver.find_elements(By.TAG_NAME, "img")
         url_finale = None
         surface_max = 0
@@ -99,45 +100,36 @@ def recuperer_temsi_force():
                 src = img.get_attribute("src")
                 w = img.size['width']
                 h = img.size['height']
-                
-                # Critères : Surface > 50000px (assez grand) et lien contient "affiche_image"
                 if w * h > 50000 and src and "affiche_image" in src:
-                    print(f"   > Candidat : {w}x{h} - {src[-20:]}")
-                    if w * h > surface_max:
-                        surface_max = w * h
-                        url_finale = src
-            except:
-                pass
+                    surface_max = w * h
+                    url_finale = src
+            except: pass
 
-        if not url_finale:
-            print("[FATAL] Pas d'image carte trouvée.")
-            sauver_debug(driver, "debug_image")
-            exit(1)
-
-        print(f"   [VICTOIRE] URL : {url_finale}")
-
-        # --- TELECHARGEMENT ---
-        session = requests.Session()
-        session.headers.update({'User-Agent': 'Mozilla/5.0'})
-        cookies = driver.get_cookies()
-        for c in cookies:
-            session.cookies.set(c['name'], c['value'])
+        if url_finale:
+            print(f"   [VICTOIRE] URL : {url_finale}")
+            session = requests.Session()
+            session.headers.update({'User-Agent': 'Mozilla/5.0'})
+            for c in driver.get_cookies(): session.cookies.set(c['name'], c['value'])
             
-        resp = session.get(url_finale)
-        if resp.status_code == 200:
-            with open(NOM_FICHIER, 'wb') as f:
-                f.write(resp.content)
-            print("[SUCCES TOTAL] Image enregistrée.")
+            resp = session.get(url_finale)
+            if resp.status_code == 200:
+                with open(NOM_FICHIER, 'wb') as f:
+                    f.write(resp.content)
+                print("[SUCCES TOTAL] Image enregistrée.")
+            else:
+                print("[ECHEC DOWNLOAD]")
         else:
-            print("[ECHEC DOWNLOAD]")
-            exit(1)
+            print("[ERREUR] Pas d'image trouvée sur la page finale.")
+            # Debug : on affiche le titre pour savoir où on a atterri
+            print(f"Page actuelle : {driver.title}")
+            raise Exception("Pas d'image")
 
     except Exception as e:
         print(f"[CRASH] {e}")
-        sauver_debug(driver, "crash_final")
+        driver.save_screenshot("erreur_finale.png")
         exit(1)
     finally:
         driver.quit()
 
 if __name__ == "__main__":
-    recuperer_temsi_force()
+    recuperer_temsi_final()
