@@ -1,16 +1,46 @@
-- name: Lancement Script FRONTS (Original)
+name: Mise a jour Carte Aero
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Toutes les heures
+  workflow_dispatch:      # Permet le lancement manuel
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v3
+
+      - name: Installation Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Installation des outils
+        run: |
+          pip install requests selenium webdriver-manager
+
+      # ETAPE 1 : SCRIPT FRONTS (Votre script original)
+      - name: Lancement Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      - name: Lancement Script TEMSI (Nouveau)
+      # ETAPE 2 : SCRIPT TEMSI (Le nouveau script)
+      - name: Lancement Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
 
-      - name: Enregistrement de TOUTES les images
+      # ETAPE 3 : SAUVEGARDE DE TOUT
+      - name: Enregistrement des images
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
