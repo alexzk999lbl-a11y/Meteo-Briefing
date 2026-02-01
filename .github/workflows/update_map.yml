@@ -2,11 +2,11 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Se lance toutes les heures à xx:00
-  workflow_dispatch:      # Permet le lancement manuel (Bouton Run)
+    - cron: '0 * * * *'  # Toutes les heures à H+00
+  workflow_dispatch:      # Permet le lancement manuel via bouton
 
 permissions:
-  contents: write         # Droit d'écrire les images dans le dépôt
+  contents: write
 
 jobs:
   build:
@@ -25,32 +25,29 @@ jobs:
         run: |
           pip install requests selenium webdriver-manager
 
-      # ETAPE 1 : SCRIPT FRONTS (Original)
-      # continue-on-error: true -> Si lui plante, on veut quand même essayer la TEMSI
+      # ETAPE 1 : SCRIPT FRONTS (Celui qui marche déjà)
       - name: Lancement Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
-        continue-on-error: true
+        continue-on-error: true  # Continue même si erreur pour tenter la suite
 
-      # ETAPE 2 : SCRIPT TEMSI (Explorateur)
-      # continue-on-error: true -> S'il plante, on veut passer à l'étape suivante pour sauvegarder le screenshot
+      # ETAPE 2 : SCRIPT TEMSI (Le nouveau "Force Brute")
       - name: Lancement Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
-        continue-on-error: true
+        continue-on-error: true  # Continue pour sauvegarder les preuves d'erreur
 
-      # ETAPE 3 : SAUVEGARDE (Cartes valides + Screenshot Erreur)
-      # if: always() -> Cette étape se lance OBLIGATOIREMENT, même si tout le reste est rouge
-      - name: Enregistrement des images
-        if: always()
+      # ETAPE 3 : SAUVEGARDE TOTALE (Images valides OU Preuves d'erreur)
+      - name: Enregistrement Git
+        if: always()  # S'exécute quoi qu'il arrive
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
-          # La commande *.png prendra temsi_france.png OU erreur_page.png
-          git add *.png
-          git commit -m "Mise a jour Cartes / Diagnostic" || echo "Pas de changement"
+          # La commande ci-dessous ajoute TOUT (images png, fichiers html, logs...)
+          git add .
+          git commit -m "Mise a jour ou Debug" || echo "Pas de changement detecte"
           git push
