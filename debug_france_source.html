@@ -1,0 +1,3621 @@
+<html><head>
+	<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+	<title>AEROWEB</title>
+	<meta name="description" content="">
+	<meta name="keywords" content="">
+	<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7">
+
+	<link type="text/css" rel="stylesheet" href="./ressources/common.css">
+	<link type="text/css" rel="stylesheet" href="./ressources/aeroweb.css">
+	<link type="text/css" rel="stylesheet" href="./ressources/centre.css">
+	<link type="text/css" rel="stylesheet" href="./ressources/messaero.css">
+	<link type="text/css" rel="stylesheet" href="./ressources/dossier_personnalise.css">
+	<link type="text/css" rel="stylesheet" href="./ressources/affichecartes.css">
+	<link type="text/css" rel="stylesheet" href="./ressources/favoris_all.css">
+
+
+
+
+
+	    
+<script src="/dmap/dmap.js"></script>
+<script src="./js/map_common.js" language="javascript"></script>
+<script src="./js/map.js" language="javascript"></script>
+<script src="./js/dossier_personnalise.js" language="javascript"></script>
+
+
+
+
+	<link rel="stylesheet" type="text/css" href="ressources/submodal.css">
+	<script type="text/javascript" src="js/submodal_common.js"></script>
+	<script type="text/javascript" src="js/submodal.js"></script>
+	<!-- <script type="text/javascript" src="js/ed_zooming.js"></script> -->
+	<link rel="stylesheet" type="text/css" href="js/jquery/css/jquery-ui-1.8.2.custom.css">
+	<script type="text/javascript" src="js/jquery/js/jquery-1.4.2.min.js"></script>
+	<script type="text/javascript" src="js/jquery/js/jquery-ui-1.8.2.custom.min.js"></script>
+	<script type="text/javascript" src="js/jquery/js/jquery.maphilight.js"></script>
+	<script type="text/javascript" src="./Aeroweb_maille_fine/ressources/js/service_wms.js"></script>
+	<script type="text/javascript" src="js/vigilance.js"></script>
+	<script>
+		jQuery.noConflict();
+
+		var test_connection_en_cours = false;
+		/**
+		javascript utilisé par la mise à jour du dic centre via ajax
+
+		**/
+
+		/////////////////////////////////////////////////////////////////////////////
+		// Dossiers pré-établis
+		function change_css_opacity(opacity) {
+			var cssrules = jQuery("<style type='text/css'> </style>").appendTo("head");
+			cssrules.append(".anim_superpose_radar{ opacity: " + opacity + ";}");
+			jQuery("img[id^='anim_superpose']").addClass("anim_superpose_radar");
+			jQuery("img[id^='anim_wait']").addClass("anim_superpose_radar");
+			//jQuery("img[id^='anim_wait']").css("opacity",opacity);   
+			//anim_wait
+			//anim_superpose'
+		}
+
+		function open_close_famille(me, famille) {
+
+			var id_div = document.getElementById(famille);
+			if (id_div.style.display == 'none') {
+				id_div.style.display = 'block';
+
+				me.style.backgroundImage = 'url(ressources/images/moins.gif)';
+
+			} else {
+				id_div.style.display = 'none';
+				me.style.backgroundImage = 'url(ressources/images/plus.gif)';
+			}
+		}
+
+
+
+
+
+
+		function show_pre_etablis(id) {
+
+			jQuery.ajax({
+				url: "./pre_etablis_to_recent.php?id=" + id,
+				type: 'GET',
+				success: function(transport) {
+					var i = parseInt(jQuery.trim(transport));
+					if (jQuery.trim(transport) == i) {
+						get_recents();
+
+						toDossPersoHtml(i);
+					}
+				}
+			});
+
+
+		}
+
+
+
+		function toDossPersoHtml(i) {
+
+
+			var parametres = 'id=' + i + "&origine=recents&id_recent_ordre=1";
+			var url = 'dossier_personnalise_show_html.php';
+
+
+			jQuery.ajax({
+				url: url,
+				type: 'GET',
+				data: parametres,
+				success: function(transport) {
+
+
+
+					jQuery('#centrebody').attr('innerHTML', transport);
+
+
+
+				},
+				error: function() {
+					alert('ajax erreur');
+				},
+				complete: function() {
+					jQuery('#waiting').hide();
+				}
+
+
+
+			});
+			jQuery('#waiting').show();
+			jQuery('#centrebody').attr('innerHTML', "");
+
+
+
+		}
+
+		////////////////////////////////////////////////////////////////
+		function test_connection() {
+			var d;
+			var s = "ttt";
+			d = new Date();
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			if (test_connection_en_cours == false) {
+				test_connection_en_cours = true;
+				jQuery.ajax({
+					url: './is_connected.php?time=' + s,
+					type: 'get',
+					success: function(transport) {
+						if (transport == 'ko') {
+							document.location.href = "deconnect.php?time=" + s;
+						}
+						test_connection_en_cours = false;
+					}
+				});
+			}
+
+		}
+
+		function detectIE(ClassID, name) {
+			result = false;
+			document.write('<SCR' + 'IPT LANGUAGE=VBScript>\n on error resume next \n result = IsObject(CreateObject("' + ClassID + '"))</SCR' + 'IPT>\n');
+			if (result) return name + ',';
+			else return '';
+		}
+
+		function detectNS(ClassID, name) {
+			n = "";
+			if (nse.indexOf(ClassID) != -1)
+				if (navigator.mimeTypes[ClassID].enabledPlugin != null)
+					n = name + ",";
+			return n;
+		}
+
+		function detect_plugin_pdf() {
+			var agt = navigator.userAgent.toLowerCase();
+			var ie = (agt.indexOf("msie") != -1);
+			var ns = (navigator.appName.indexOf("Netscape") != -1);
+			var win = ((agt.indexOf("win") != -1) || (agt.indexOf("32bit") != -1));
+			var mac = (agt.indexOf("mac") != -1);
+
+			if (ie && win) {
+				pluginlist = detectIE("PDF.PdfCtrl.3", "Acrobat Reader") + detectIE("PDF.PdfCtrl.4", "Acrobat Reader") + detectIE("PDF.PdfCtrl.5", "Acrobat Reader") + detectIE("PDF.PdfCtrl.6", "Acrobat Reader");
+			}
+			if (ns || !win) {
+				nse = "";
+				for (var i = 0; i < navigator.mimeTypes.length; i++)
+					nse += navigator.mimeTypes[i].type.toLowerCase();
+				pluginlist = detectNS("application/pdf", "Acrobat Reader");
+			}
+
+
+			if (pluginlist.length > 0) {
+				pluginlist = pluginlist.substring(0, pluginlist.length - 1);
+				if (pluginlist.indexOf("Acrobat Reader") != -1)
+					alert('plugin pdf present');
+				else alert('plugin pdf absent');
+				return;
+			}
+			alert('plugin pdf absent');
+		}
+
+		var center_map = null;
+		var zoom_map = null;
+		var param_opemet = "param_opmet_oaci";
+
+
+
+		var indice_anim = -1;
+		var timer_anim = null;
+		var delay_anim = 300;
+		var cpt_image_anim = 0;
+		var stop_anim_demande = false;
+
+		function show_anim_number(indice) {
+
+
+			if (!jQuery('#anim' + indice).get(0)) return;
+			jQuery('#anim' + indice).css('visibility', 'visible');;
+			if (jQuery('#superpose_image').get(0)) {
+				if (jQuery('#anim_superpose' + indice).get(0)) {
+
+					if (jQuery('#superpose_image').attr('checked') == true) {
+						jQuery('#anim_superpose' + indice).css('visibility', 'visible');
+
+
+						jQuery('#echelle_radar').css('display', 'block');
+					} else {
+						jQuery('#anim_superpose' + indice).css('visibility', 'hidden');
+
+
+						jQuery('#echelle_radar').css('display', 'none');
+					}
+				}
+			}
+			jQuery('#anim_cell' + indice).attr('className', 'cursor_actif');
+			indice_anim = indice;
+		}
+
+		function count_image_anim(total, index) {
+			cpt_image_anim++;
+
+			jQuery('#anim_cell' + index).css('visibility', 'visible');
+
+
+
+
+
+			if (cpt_image_anim == total) {
+
+				if (total > 1) {
+					jQuery('#anim_play').css('display', 'block');
+					jQuery('#anim_stop').css('display', 'block');
+				}
+				jQuery('#anim_wait').css('display', 'none');
+				if (jQuery('#anim_expand').get(0)) jQuery('#anim_expand').css('display', 'block');
+				if (jQuery('#anim_zoomplus').get(0)) jQuery('#anim_zoomplus').css('display', 'block');
+				if (jQuery('#anim_zoommoins').get(0)) jQuery('#anim_zoommoins').css('display', 'block');
+				if (jQuery('#select_type_image_anim').get(0)) jQuery('#select_type_image_anim').attr('disabled', false);
+				if (jQuery('#select_fly_level_anim').get(0)) jQuery('#select_fly_level_anim').attr('disabled', false);
+
+				if (jQuery('#select_echeance_anim').get(0)) jQuery('#select_echeance_anim').attr('disabled', false);
+
+			}
+
+		}
+
+		function zoommoins() {
+			var width = jQuery('#conteneur_zoom_plus').width();
+
+			var height = jQuery('#conteneur_zoom_plus').height();
+			var pcwidth = width / 10;
+			var pcheight = height / 10;
+
+			var newwidth = jQuery('#conteneur_zoom_plus').width() - pcwidth;
+
+			var newheight = jQuery('#conteneur_zoom_plus').height() - pcheight;
+
+
+			if (newwidth >= jQuery('#conteneur_zoom').width()) {
+
+				jQuery('#conteneur_zoom_plus').width(newwidth);
+
+				jQuery('#conteneur_zoom_plus').height(newheight);
+
+
+
+				var p = jQuery('#conteneur_zoom_plus').position();
+
+				jQuery('#conteneur_zoom_plus').css('left', p.left + (pcwidth / 2) + 'px');
+
+				jQuery('#conteneur_zoom_plus').css('top', p.top + (pcheight / 2) + 'px');
+
+			} else {
+
+
+				jQuery('#conteneur_zoom_plus').width(width);
+				jQuery('#conteneur_zoom_plus').height(height);
+
+				jQuery('#conteneur_zoom_plus').css('left', '0px');
+				jQuery('#conteneur_zoom_plus').css('top', '0px');
+
+
+			}
+
+
+
+
+			deplace_carte(jQuery('#conteneur_zoom_plus'));
+
+		}
+
+		function zoomhome() {
+
+			jQuery('#conteneur_zoom_plus').width(jQuery('#conteneur_zoom').width());
+			jQuery('#conteneur_zoom_plus').height(jQuery('#conteneur_zoom').height());
+			jQuery('#conteneur_zoom_plus').css('left', '0px');
+			jQuery('#conteneur_zoom_plus').css('top', '0px');
+
+		}
+
+		function zoomplus() {
+
+			var pcwidth = jQuery('#conteneur_zoom_plus').width() / 10;
+
+			var pcheight = jQuery('#conteneur_zoom_plus').height() / 10;
+			jQuery('#conteneur_zoom_plus').width(jQuery('#conteneur_zoom_plus').width() + pcwidth);
+			jQuery('#conteneur_zoom_plus').height(jQuery('#conteneur_zoom_plus').height() + pcheight);
+
+			var position = jQuery('#conteneur_zoom_plus').position();
+			jQuery('#conteneur_zoom_plus').css('left', (position.left - (pcwidth / 2)) + 'px');
+
+
+			jQuery('#conteneur_zoom_plus').css('top', (position.top - (pcheight / 2)) + 'px');
+
+
+		}
+
+		function get_fly_level_from_domaine_and_chart(id_domaine, id_chart) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./get_fly_level_from_domaine_and_chart.php?id_domaine=" + id_domaine + "&id_chart=" + id_chart + "&time=" + s,
+				type: 'GET',
+				success: function(transport) {
+					var xml = transport;
+
+
+
+
+					var options = xml.getElementsByTagName('option');
+
+					jQuery('#mniveau option').remove();
+
+
+					for (var i = 0; i < options.length; i++) {
+						var oOption = document.createElement('OPTION');
+
+
+						jQuery('#mniveau').attr('options').add(oOption);
+						oOption.innerHTML = options[i].firstChild.data;
+						oOption.value = options[i].getAttribute('value');
+
+					}
+
+				}
+			});
+
+		}
+
+		function get_level_from_domaine_and_chart_aerologique(id_domaine, id_chart) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./get_level_from_domaine_and_chart_aerologique.php?id_domaine=" + id_domaine + "&id_chart=" + id_chart + "&time=" + s,
+				type: 'GET',
+				success: function(transport) {
+
+					var xml = transport;
+
+
+
+
+					var options = xml.getElementsByTagName('option');
+
+
+					jQuery('#mniveau_aerologique option').remove();
+					/*
+					while (jQuery('#mniveau_aerologique').attr('options').length != 0)
+					{
+						jQuery('#mniveau_aerologique').attr('options')[0].remove();
+					}
+					*/
+					for (var i = 0; i < options.length; i++) {
+						var oOption = document.createElement('OPTION');
+
+						jQuery('#mniveau_aerologique').attr('options').add(oOption);
+						oOption.innerHTML = options[i].firstChild.data;
+						oOption.value = options[i].getAttribute('value');
+
+					}
+
+				},
+				error: function() {}
+			});
+
+		}
+
+		function get_type_carte_from_domaine(id_domaine) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./get_type_carte_from_domaine.php?id_domaine=" + id_domaine + "&time=" + s,
+				type: 'GET',
+				success: function(transport) {
+					var xml = transport;
+
+					var options = xml.getElementsByTagName('option');
+
+					jQuery('#mtype_carte option').remove();
+
+
+					for (var i = 0; i < options.length; i++) {
+						var oOption = document.createElement('OPTION');
+
+						jQuery('#mtype_carte').attr('options').add(oOption);
+						oOption.innerHTML = options[i].firstChild.data;
+						oOption.value = options[i].getAttribute('value');
+
+					}
+					get_fly_level_from_domaine_and_chart(jQuery('#mdomaine').val(), jQuery('#mtype_carte').val())
+				}
+			});
+
+		}
+
+		function get_type_carte_from_domaine_aerologique(id_domaine) {
+
+
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./get_type_carte_from_domaine_aerologique.php?id_domaine=" + id_domaine + "&time=" + s,
+				type: 'get',
+				success: function(transport) {
+					var xml = transport;
+
+					var options = xml.getElementsByTagName('option');
+
+					jQuery('#mtype_carte_aerologique option').remove();
+					/*while (jQuery('#mtype_carte_aerologique').attr('options').length != 0)
+					{
+						jQuery('#mtype_carte_aerologique').attr('options')[0].remove();
+					}*/
+
+					for (var i = 0; i < options.length; i++) {
+						var oOption = document.createElement('OPTION');
+
+						jQuery('#mtype_carte_aerologique').attr('options').add(oOption);
+						oOption.innerHTML = options[i].firstChild.data;
+						oOption.value = options[i].getAttribute('value');
+
+					}
+					get_level_from_domaine_and_chart_aerologique(jQuery('#mdomaine_aerologique').val(), jQuery('#mtype_carte_aerologique').val());
+				},
+				error: function() {}
+			});
+
+		}
+
+
+
+
+		function deplace_carte(element) {
+
+			var p = element.position()
+
+			if (p.left > 0) element.css('left', '0px');
+			else {
+				if (p.left + element.width() < jQuery('#conteneur_zoom').width()) {
+					p.left += jQuery('#conteneur_zoom').width() - (element.width() + p.left);
+					element.css('left', p.left + 'px');
+				}
+
+			}
+			if (p.top > 0) element.css('top', '0px');
+			else {
+				if (p.top + element.height() < jQuery('#conteneur_zoom').height()) {
+					p.top += jQuery('#conteneur_zoom').height() - (element.height() + p.top);
+					element.css('top', p.top + 'px');
+				}
+
+			}
+
+		}
+
+		function stop_anim() {
+			if (timer_anim) {
+				clearInterval(timer_anim);
+				timer_anim = null;
+			}
+
+
+		}
+
+		function anim_moins_vite_action() {
+			delay_anim += 500;
+			if (delay_anim < 500) delay_anim = 500;
+			demarre_anim();
+
+		}
+
+		function anim_plus_vite_action() {
+			delay_anim -= 500;
+			if (delay_anim < 500) delay_anim = 500;
+			demarre_anim();
+
+		}
+
+		function image_suivante() {
+			var i = indice_anim;
+			i++;
+			if (!jQuery('#anim' + i).get(0)) i = 0;
+			vu_image_anim(i);
+		}
+
+		function image_precedente() {
+			var i = indice_anim;
+			i--;
+			if (!jQuery('#anim' + i).get(0)) {
+				i = -1;
+				while (jQuery('#anim' + (i + 1)).get(0)) i++;
+			}
+			vu_image_anim(i);
+		}
+
+		function vu_image_anim(indice) {
+			if (jQuery('#anim_cell' + indice).css('visibility') == 'visible') {
+				stop_anim();
+				hide_anim_number(indice_anim)
+				show_anim_number(indice);
+			}
+		}
+
+		function demarre_anim() {
+			if (stop_anim_demande == true) return;
+			stop_anim();
+			timer_anim = setInterval(anim_sat, delay_anim);
+
+		}
+
+		function hide_anim_number(indice) {
+
+			if (!jQuery('#anim' + indice).get(0)) return;
+			jQuery('#anim' + indice).css('visibility', 'hidden');
+
+			if (jQuery('#anim_superpose' + indice).get(0)) {
+				jQuery('#anim_superpose' + indice).css('visibility', 'hidden');
+
+			}
+			jQuery('#anim_cell' + indice).attr('className', 'cursor_inactif');
+		}
+
+		function anim_sat() {
+			if (stop_anim_demande == true) return;
+			if (!jQuery('#anim0').get(0)) {
+				stop_anim();
+				return;
+			}
+
+			var i = indice_anim + 1;
+			if (!jQuery('#anim' + i).get(0)) i = 0;
+
+
+			if (i == 0) {
+				stop_anim();
+				setTimeout("hide_anim_number(" + indice_anim + ");show_anim_number(" + i + ");demarre_anim();", 1000);
+				return;
+			}
+
+			hide_anim_number(indice_anim)
+			show_anim_number(i)
+
+		}
+
+		function load_anim(indice, link_precedent) {
+
+
+			jQuery('#anim' + (indice)).attr('src', link_precedent);
+
+		}
+
+		function tolangue() {
+			var url = "accueil.php?lang=" + "gb";
+			window.open(url, '_self');
+		}
+		/* * * * */
+		function deplace_favoris(from, to) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./favoris_deplace.php?from=" + from + "&to=" + to + s,
+				type: 'GET',
+				success: function(transport) {
+					get_favoris();
+
+				},
+				error: function() {
+					get_favoris();
+				}
+			});
+
+		}
+
+		function demande_efface_favoris(id) {
+			var t = "<table border=0 width='150px'><tr><td align='left'><a href='#' onclick='return false;' class='lien1'>Non</a></td> <td align='right'> <a href='' onclick='efface_favoris(" + id + ");return false;' class='lien1'>Oui</a></td></tr></table>";
+
+			Tip(t, BORDERWIDTH, 2, STICKY, true, CLICKCLOSE, true, BGCOLOR, 'ivory', BORDERCOLOR, 'red', SHADOW, true, TITLE, "Suppression de ce favori?", DURATION, 3000);
+
+		}
+
+		function make_url_vigilance() {
+
+			jQuery('#containerVigilance2').attr('src', "./vigilance.php?time=1769978756");
+
+
+		}
+
+		function efface_favoris(id) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./favoris_delete.php?id=" + id + s,
+				type: 'GET',
+				success: function(transport) {
+					get_favoris();
+
+				},
+				error: function() {
+					get_favoris();
+				}
+			});
+
+		}
+
+		function get_favoris() {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./favoris_get.php?id_user=248844" + s,
+				type: 'GET',
+				success: function(transport) {
+
+					var i_fin_petit_tableau = -1;
+					var response = transport;
+					var favoris = response.getElementsByTagName('favoris');
+					var id_favoris = document.getElementById('dossiers_favoris');
+					var id_favoris_all = document.getElementById('favoris_all');
+
+					id_favoris.innerHTML = "";
+					if (id_favoris_all) id_favoris_all.innerHTML = "";
+
+					if (favoris.length == 0) {
+						var table = document.createElement('TABLE');
+						table.width = "100%";
+						table.border = "0";
+						table.cellspacing = "0";
+						table.cellpadding = "0";
+						var tr = table.insertRow(0);
+						var td = tr.insertCell(0);
+						td.innerHTML = "<span class='texte4'>Vous n&rsquo;avez aucun dossier de vol favori. Pour ajouter un dossier de vol favori, rendez-vous sur les pages :</span><br /><br /><span class='spanniveau1' ><a target='_self' href='javascript:to_petite_carte();' title=''>Dossier personnalis&eacute;</a></span><br><span class='spanniveau1'><a target='_self' href='javascript:toDossPre();' title=''>Dossiers pr&eacute;-&eacute;tablis</a></span>"
+						id_favoris.appendChild(table);
+
+					} else {
+
+						var table = document.createElement('TABLE');
+						table.width = "298px";
+						table.border = 0;
+						table.cellSpacing = 0;
+						table.cellPadding = 0;
+						table.align = 'center';
+						table.style.border = '0px solid red';
+						var precedent = favoris[favoris.length - 1].getAttribute('ordre');
+						if (id_favoris_all) {
+							var table_favoris_all = document.createElement('TABLE');
+							table_favoris_all.width = "410px";
+							table_favoris_all.border = 0;
+							table_favoris_all.cellSpacing = 0;
+							table_favoris_all.cellPadding = 0;
+							table_favoris_all.align = 'center';
+							table_favoris_all.style.border = '0px solid red';
+						}
+
+						for (var i = 0; i < favoris.length; i++) {
+
+							if (favoris[i + 1]) suivant = favoris[i + 1].getAttribute('ordre')
+							else suivant = favoris[0].getAttribute('ordre');;
+
+							if (i % 2 == 0) {
+								var imprimante = 'ressources/images/picto/imprimante-bch.jpg';
+								var cl = 'cellCoulBlanche';
+							} else {
+								var imprimante = 'ressources/images/picto/imprimante-ble.jpg';
+								var cl = 'cellCoulBleue';
+							}
+							var err = favoris[i].getAttribute('err');
+							if (i < 5) {
+								var tr = table.insertRow(i);
+								var td = tr.insertCell(0);
+
+
+								td.className = cl;
+								td.valign = 'middle';
+								var title = favoris[i].getAttribute('etapes');
+								if (title != "") title = "Via: " + title;
+								td.innerHTML = "<a href='' onclick=\"return newwindow('dossier_personnalise_show_pdf.php?id=" + favoris[i].getAttribute('id') + "&origine=favoris');\" target=\"_new\"title=\"Impression au format PDF\"><img title=\"Impression au format PDF\" src='" + imprimante + "' alt='' border='0' /></a>";
+								td.width = "30px";
+								td.height = '15px';
+								td.style.border = '0px solid lime';
+								td.align = 'left';
+
+								var td = tr.insertCell(1);
+								td.className = cl;
+								td.align = 'left';
+								td.width = "268px";
+								td.style.border = '0px solid red';
+								if (err == '1') td.innerHTML = "<a style='color:red;' href='#' onclick='dossier_vol_show_html_from_favoris(" + favoris[i].getAttribute('id') + ");return false;'  title='" + title + "' class='lien6'>" + favoris[i].firstChild.data + "</a>";
+								else td.innerHTML = "<a  href='#' onclick='dossier_vol_show_html_from_favoris(" + favoris[i].getAttribute('id') + ");return false;'  title='" + title + "' class='lien6'>" + favoris[i].firstChild.data + "</a>";
+								i_fin_petit_tableau = i;
+
+							}
+
+
+							if (id_favoris_all) {
+								var tr = table_favoris_all.insertRow(i);
+								var td = tr.insertCell(0);
+
+								td.width = "30";
+								td.height = '15';
+								td.className = cl;
+								td.valign = 'middle';
+								td.innerHTML = "<a href='' target='_new' onclick=\"return newwindow('dossier_personnalise_show_pdf.php?id=" + favoris[i].getAttribute('id') + "&origine=favoris');\" title=\"Impression au format PDF\"><img title=\"Impression au format PDF\" src='" + imprimante + "' alt='' border='0' /></a>";
+
+								var td = tr.insertCell(1);
+								td.className = cl;
+								var title = favoris[i].getAttribute('etapes');
+								if (title != "") title = "Via: " + title;
+								if (err == '1')
+									td.innerHTML = "<a style='color:red;' id='favoris_name_" + favoris[i].getAttribute('id') + "' href='#' onclick='dossier_vol_show_html_from_favoris(" + favoris[i].getAttribute('id') + ");return false;' title='" + title + "' class='lien6'>" + favoris[i].firstChild.data + "</a>";
+								else td.innerHTML = "<a id='favoris_name_" + favoris[i].getAttribute('id') + "' href='#' onclick='dossier_vol_show_html_from_favoris(" + favoris[i].getAttribute('id') + ");return false;' title='" + title + "' class='lien6'>" + favoris[i].firstChild.data + "</a>";
+
+								var td = tr.insertCell(2);
+								td.className = cl;
+								td.width = '22px';
+								td.innerHTML = "<a href='#' title=\"Modifier le nom de ce favori\" ><img border='0' title=\"Modifier le nom de ce favori\" alt='' src='./ressources/images/picto/note-bch.jpg' onclick='change_name_favoris(" + favoris[i].getAttribute('id') + ");'/></a>";
+
+								var td = tr.insertCell(3);
+								td.className = cl;
+								td.width = '20px';
+								td.innerHTML = "<a href='#' title=\"Effacer ce favori\"><img title=\"Effacer ce favori\" onclick=\"demande_efface_favoris(" + favoris[i].getAttribute('id') + ");\" border='0' alt='' src='./ressources/images/picto/supprimer.jpg'/></a>";
+
+								var td = tr.insertCell(4);
+								td.className = cl;
+								td.width = '20px';
+								td.innerHTML = "<a href='#' title=\"Monter\"><img title=\"Monter\" onclick=\"deplace_favoris(" + favoris[i].getAttribute('ordre') + "," + precedent + ");\" border='0' alt='' src='./ressources/images/picto/monter.jpg'/></a>";
+
+
+								var td = tr.insertCell(5);
+								td.className = cl;
+								td.width = '20px';
+								td.innerHTML = "<a href='#' title=\"Descendre\"><img title=\"Descendre\" onclick=\"deplace_favoris(" + favoris[i].getAttribute('ordre') + "," + suivant + ");\" border='0' alt='' src='./ressources/images/picto/descendre.jpg'/></a>";
+
+
+
+							}
+
+
+
+
+
+							precedent = favoris[i].getAttribute('ordre');
+
+
+						}
+
+						if (i_fin_petit_tableau >= 0) {
+
+
+
+
+							var i = i_fin_petit_tableau + 1;
+
+							if (i % 2 == 0) {
+
+								var cl = 'cellCoulBlanche';
+							} else {
+
+								var cl = 'cellCoulBleue';
+							}
+
+							var tr = table.insertRow(i);
+							var td = tr.insertCell(0);
+
+							td.className = cl;
+							td.colSpan = 2;
+							td.align = 'center';
+							//td.innerHTML="<a href='./accueil.php?link_to=favoris_all' title='' class='lien6'>Tous mes favoris</a>";
+							td.innerHTML = "<a href='' title='' onclick='affiche_all_favoris();return false;' class='lien6'>Tous mes favoris</a>";
+
+						}
+
+						id_favoris.appendChild(table);
+						if (id_favoris_all) id_favoris_all.appendChild(table_favoris_all);
+
+					}
+
+
+
+
+				},
+				error: function() {
+					alert('Error');
+				}
+			});
+
+		}
+
+		function affiche_all_favoris() {
+			var d = new Date();
+			var s = "?time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			if (map) {
+				map.destroy();
+				map = null;
+			}
+
+
+			jQuery('#centrebody').attr('innerHTML', "");
+			open("#debut_page", "_self");
+			jQuery.ajax({
+				url: "favoris_all.php" + s,
+				type: 'GET',
+
+
+				success: function(transport) {
+
+					var response = transport;
+					jQuery('#centrebody').attr('innerHTML', response);
+					get_favoris();
+					jQuery('#menu_droit').css('display', 'block');
+				},
+				error: function() {
+					alert("Erreur");
+				},
+				complete: function() {
+					setTimeout("cacheWaiting()", 100);
+				},
+				beforeSend: function() {
+					busyProcess();
+				}
+			});
+
+		}
+
+		function recent_to_favoris(id) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./recent_to_favoris.php?id=" + id + s,
+				type: 'GET',
+				success: function(transport) {
+					get_favoris();
+
+				},
+				error: function() {
+					get_favoris();
+				}
+			});
+
+		}
+
+		function get_recents() {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			jQuery.ajax({
+				url: "./recents_get.php?id_user=248844" + s,
+				type: 'get',
+				success: function(transport) {
+
+
+					var response = transport;
+					var recents = response.getElementsByTagName('recents');
+					var id_recents = document.getElementById('dossiers_recents');
+
+
+					id_recents.innerHTML = "";
+
+
+					if (recents.length == 0) {
+
+						var table = document.createElement('TABLE');
+						table.width = "100%";
+
+
+						table.border = "0";
+						table.cellspacing = "0";
+						table.cellpadding = "0";
+						var tr = table.insertRow(0);
+						tr.align = 'center';
+						var td = tr.insertCell(0);
+						td.valign = "middle";
+						td.height = '130px';
+
+						td.innerHTML = "<span class='texte4'>Vous n'avez consulté aucun dossier de vol.</span>"
+						id_recents.appendChild(table);
+
+					} else {
+
+						var table = document.createElement('TABLE');
+						table.width = "298px";
+						table.border = 0;
+						table.cellSpacing = 0;
+						table.cellPadding = 0;
+						//table.align='center';
+						table.style.border = '0px solid red';
+
+
+						for (var i = 0; i < recents.length; i++) {
+
+
+
+							if (i % 2 == 0) {
+								var imprimante = 'ressources/images/picto/imprimante-bch.jpg';
+								var cl = 'cellCoulBlanche';
+							} else {
+								var imprimante = 'ressources/images/picto/imprimante-ble.jpg';
+								var cl = 'cellCoulBleue';
+							}
+							var err = recents[i].getAttribute('err');
+							if (i < 5) {
+								var tr = table.insertRow(i);
+								var td = tr.insertCell(0);
+
+								td.width = "30";
+								td.height = '15';
+								td.className = cl;
+								td.valign = 'middle';
+								var title = recents[i].getAttribute('etapes');
+								if (title != "") title = "Via: " + title;
+								td.innerHTML = "<a href='' onclick=\"return newwindow('dossier_personnalise_show_pdf.php?origine=recents&id=" + recents[i].getAttribute('id') + "');\" target=\"_new\" title=\"Impression au format PDF\"><img title=\"Impression au format PDF\" src='" + imprimante + "' alt='' border='0' /></a>";
+								td.align = 'left';
+								var td = tr.insertCell(1);
+								td.className = cl;
+								td.align = 'left';
+								if (err == '1')
+									td.innerHTML = "<a style='color:red;' href='#' onclick='dossier_vol_show_html_from_recents(" + recents[i].getAttribute('ordre') + "," + recents[i].getAttribute('id') + ");return false;' title='" + title + "' class='lien6'>" + recents[i].firstChild.data + "</a>";
+								else td.innerHTML = "<a href='#' onclick='dossier_vol_show_html_from_recents(" + recents[i].getAttribute('ordre') + "," + recents[i].getAttribute('id') + ");return false;' title='" + title + "' class='lien6'>" + recents[i].firstChild.data + "</a>";
+
+
+							}
+
+
+
+						}
+
+
+
+						id_recents.appendChild(table);
+
+
+					}
+
+
+
+
+				},
+				error: function() {
+					alert('Error');
+				}
+			});
+
+		}
+
+		function change_name_favoris(index) {
+
+			var id_a = document.getElementById('favoris_name_' + index);
+			//var content_html=id_a.innerHTML.stripTags().escapeHTML();
+			var content_html = jQuery('#' + 'favoris_name_' + index).text();
+			var size = content_html.length
+			var new_content_html = "<input class='aero' onblur='change_name_favoris_input(" + index + ")' id='favoris_name_input_" + index + "' type='text' style='width:98%;' value='" + content_html + "'>";
+
+
+			//Element.replace(id_a,new_content_html);
+			jQuery('#' + 'favoris_name_' + index).replaceWith(new_content_html);
+
+
+			document.getElementById('favoris_name_input_' + index).focus();
+		}
+
+		function change_name_favoris_input(index) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+
+			var id_input = document.getElementById('favoris_name_input_' + index);
+			var value = jQuery('#' + 'favoris_name_input_' + index).val();
+			var new_content_html = "<a id='favoris_name_" + index + "' href='#' title='' class='lien6'>" + value + "</a>";
+			//Element.replace(id_input,new_content_html);
+			jQuery('#' + 'favoris_name_input_' + index).replaceWith(new_content_html);
+
+			jQuery.ajax({
+				url: "./favoris_change_name.php?id=" + index + "&newname=" + value + s,
+				type: 'GET',
+				success: function(transport) {
+
+					get_favoris();
+
+				},
+				error: function() {
+					alert('Error');
+				}
+			});
+
+
+		}
+
+		function dossier_vol_show_html_from_favoris(from) {
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+
+			jQuery.ajax({
+				url: "./favoris_to_recent.php?id=" + from + s,
+				type: 'GET',
+				success: function(transport) {
+
+					get_recents();
+
+					toAjaxRequest("./dossier_personnalise_show_html.php?id_recent_ordre=1&id=" + from + "&origine=favoris", "");
+				},
+				error: function() {
+					alert('Error');
+				}
+			});
+		}
+
+		function dossier_vol_show_html_from_recents(from, id) {
+
+
+			toAjaxRequest("./dossier_personnalise_show_html.php?id_recent_ordre=" + from + "&id=" + id + "&origine=recents", "");
+		}
+
+		function dossier_vol_show_html() {
+
+		}
+
+
+		function changeoaci() {
+
+			var value = "<div id='tabshow'><table  width='100%' CELLPADDING='0' CELLSPACING='0'>";
+			value += "<tr><td>";
+			value += "<table  width='100%' border='0' cellspacing='0' cellpadding='0'>";
+			value += "<tr>";
+
+			value += "<td height='40' colspan='2' align='center' >";
+			value += "<span class='texte4' ";
+			value += " ";
+			value += "  ";
+			value += ">";
+			value += "Codes OACI : ";
+			value += "</span>";
+			value += "<input  READONLY onmouseout='UnTip();' onmouseover=\"Tip('Choisissez votre aérodrome préférée', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,10,CENTERMOUSE,true);\" onclick=\"recherche_station('aero2',false,ajax_validMessage);return false;\" type='text' name='aero2' id='aero2' style='text-transform: uppercase;'	class='inputIdentification' value=\"" + aeroport_prefere.oaci + "\"/>";
+
+			value += "<div id='loading' style='display:none'><img src='ressources/images/picto/loader.gif'>Loading...</div>";
+			value += "</td>";
+
+			value += "</tr></table></td></tr>";
+			value += "</table></div>";
+			jQuery('#tabshow').replaceWith(value);
+
+
+		}
+
+
+
+		function ajax_validMessage() {
+			var url = "showmessage.php";
+			if (jQuery('#aero2').get(0)) var parametres = "code=" + jQuery('#aero2').val();
+			else var parametres = "code=" + aeroport_prefere.oaci;
+
+			jQuery.ajax({
+				url: url,
+				type: 'GET',
+				data: parametres,
+				success: function(transport) {
+					var response = transport;
+					jQuery('#tabshow').attr('innerHTML', response);
+					jQuery('#showspan').attr('innerHTML', jQuery('#hidden').val());
+
+					aeroport_prefere.oaci = jQuery('#hidden').val();
+					aeroport_prefere.lon = document.getElementById('lon_message').value;
+					aeroport_prefere.lat = document.getElementById('lat_message').value;
+
+					if (map && document.getElementById('lon_message') && document.getElementById('lat_message')) {
+						gotoStation(document.getElementById('lon_message').value, document.getElementById('lat_message').value)
+					}
+				},
+				error: function() {
+					alert("Erreur");
+				},
+				complete: function() {
+					jQuery('#loading').hide();
+				},
+				beforeSend: function() {
+					jQuery('#loading').show();
+				}
+			});
+		}
+
+		function showEffect(id, under) {
+
+
+
+			//var t= ['idcartes_aerologiques','idcartes','idimages','idmessages','idmaa','idmessages_sigmet','metcartereg','metcartesousreg','metcartedep','metcartesousdep','metcartevfr','metcartesousvfr','metcarte_radio_sondage','metcartesous_radio_sondage'];
+			var t = ['idcartes_aerologiques', 'idcartes', 'idimages', 'idmessages', 'idmaa', 'idmessages_sigmet', 'metcartevfr', 'metcartesousvfr', 'metcarte_radio_sondage', 'metcartesous_radio_sondage'];
+
+			for (i = 0; i < t.length; i++) {
+				var code = t[i];
+				if (code == id || code == under) continue;
+
+				if (jQuery('#' + code).get(0)) {
+					var disp = jQuery('#' + code).css('display');
+					if (disp != 'none') {
+						jQuery('#' + code).toggle('blind', 'slow');
+					}
+
+
+				}
+
+			}
+
+
+
+			jQuery('#' + id).toggle('blind', 'slow');
+
+			jQuery("#img_gaffor").maphilight();
+
+			if (under != null) {
+				jQuery('#' + under).toggle('blind', 'slow');
+			}
+		}
+
+		function validmaa3() {
+			var parametres = 'mode=html&codes=' + jQuery('#maa3').val().toUpperCase();
+			var url = 'bulletin_maa.php';
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/synaps_aero.css');
+			document.getElementsByTagName('head')[0].appendChild(flink);
+			toAjaxRequest(url, parametres);
+		}
+
+		function validMessages3() {
+			var parametres = 'mode=html&codes=' + jQuery('#aero3').val().toUpperCase();
+			var url = 'affichemessages.php';
+			toAjaxRequest(url, parametres);
+		}
+
+		function validMessages3_sigmet() {
+			var parametres = 'mode=html&codes=' + jQuery('#sigmet3').val().toUpperCase();
+			var url = 'affichemessages_sigmet.php';
+			toAjaxRequest(url, parametres);
+		}
+
+		function toDossPre() {
+			var d = new Date();
+			var s = "time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			var parametres = s;
+
+			var url = 'dossiers_pre-etablis.php';
+			toAjaxRequest(url, parametres);
+		}
+
+		function toTactique(indicatif) {
+			if (indicatif == null) {
+				indicatif = jQuery('#selreg').val();
+			}
+			if (indicatif == "") return;
+			var parametres = 'mode=html&code=' + indicatif;
+			var url = 'bulletin_tactique.php';
+			jQuery('#selreg').val(indicatif);
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/synaps_aero.css');
+			document.getElementsByTagName('head')[0].appendChild(flink);
+			toAjaxRequest(url, parametres);
+		}
+
+		function toRadiosondage(indicatif) {
+			if (indicatif == null) {
+				indicatif = jQuery('#selreg_radio_sondage').val();
+			}
+			var d = new Date();
+			var s = "time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+
+			var parametres = '?' + s + '&indicatif=' + indicatif + '&' + s + "&language=fr";
+			//var url='carte_radiosondage.php';
+			var url = 'anim_radio_sondage_observe.php' + parametres;
+			jQuery('#selreg_radio_sondage').val(indicatif);
+
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat(url);
+
+		}
+
+		function toRadiosondage_prevu(indicatif) {
+
+
+			if (indicatif == null) {
+				indicatif = jQuery('#selreg_radio_sondage').val();
+			}
+
+			if (indicatif == 'france' ||
+				indicatif == 'Herstmonceux' ||
+				indicatif == 'Lille' ||
+				indicatif == 'Amiens' ||
+				indicatif == 'Epernay' ||
+				indicatif == 'Nancy' ||
+				indicatif == 'Stuttgart' ||
+				indicatif == 'Epinal' ||
+				indicatif == 'Colmar' ||
+				indicatif == 'Trappes' ||
+				indicatif == 'Rennes' ||
+				indicatif == 'Brest' ||
+				indicatif == 'Poitiers' ||
+				indicatif == 'Bourges' ||
+				indicatif == 'Beaune' ||
+				indicatif == 'Milan' ||
+				indicatif == 'Chambery' ||
+				indicatif == 'Lyon' ||
+				indicatif == 'Saint-Flour' ||
+				indicatif == 'Cahors' ||
+				indicatif == 'Bordeaux' ||
+				indicatif == 'Santander' ||
+				indicatif == 'Saint-Girons' ||
+				indicatif == 'Nimes' ||
+				indicatif == 'Gap' ||
+				indicatif == 'Ajaccio' ||
+				indicatif == 'Payerne' ||
+				indicatif == 'Biarritz' ||
+				indicatif == 'Auch' ||
+				indicatif == 'Perpignan' ||
+				indicatif == 'Florac' ||
+				indicatif == 'Vichy' ||
+				indicatif == 'Manosque' ||
+				indicatif == 'Orleans' ||
+				indicatif == 'Chaumont ' ||
+				indicatif == 'Alencon' ||
+				indicatif == 'Rouen'
+			) {
+				jQuery('#carte_radiosondage_id').attr('src', 'ressources/images/background/carte_radio_sondage.gif');
+				jQuery('#carte_radiosondage_id').attr('useMap', '#map_radio_sondage');
+				if (indicatif == 'france') return;
+			}
+			if (indicatif == 'ocean_indien' ||
+				indicatif == 'La Réunion' ||
+				indicatif == 'Maurice' ||
+				indicatif == 'Gillot' ||
+				indicatif == 'Ivato' ||
+				indicatif == 'Seychelles'
+			) {
+
+				jQuery('#carte_radiosondage_id').attr('src', 'ressources/images/background/carte_radio_sondage_reunion.gif');
+				jQuery('#carte_radiosondage_id').attr('useMap', '#map_radio_sondage_reunion');
+				if (indicatif == 'ocean_indien') return;
+			}
+			if (indicatif == 'caledonie' ||
+				indicatif == 'Noumea' ||
+				indicatif == 'Mont Dzumac' ||
+				indicatif == 'Mont Mou' ||
+				indicatif == 'La Ouenghi' ||
+				indicatif == 'Ouatom' ||
+				indicatif == 'Poe'
+			) {
+
+				jQuery('#carte_radiosondage_id').attr('src', 'ressources/images/background/carte_radio_sondage_caledonie.gif');
+				jQuery('#carte_radiosondage_id').attr('useMap', '#map_radio_sondage_caledonie');
+				if (indicatif == 'caledonie') return;
+			}
+			if (indicatif == 'Tahiti' || indicatif == 'Faaa' || indicatif == 'Rapa' || indicatif == 'Hiva Oa' || indicatif == 'Mangareva') {
+
+				jQuery('#carte_radiosondage_id').attr('src', 'ressources/images/background/carte_radio_sondage_tahiti.gif');
+				jQuery('#carte_radiosondage_id').attr('useMap', '#map_radio_sondage_tahiti');
+				if (indicatif == 'Tahiti') return;
+			}
+			if (indicatif == 'Guyane' || indicatif == 'Cayenne-Matoury') {
+
+				jQuery('#carte_radiosondage_id').attr('src', 'ressources/images/background/carte_radio_sondage_guyane.gif');
+				jQuery('#carte_radiosondage_id').attr('useMap', '#map_radio_sondage_guyane');
+				if (indicatif == 'Guyane') return;
+
+			}
+			if (indicatif == 'Guadeloupe' || indicatif == 'Le Raizet') {
+
+				jQuery('#carte_radiosondage_id').attr('src', 'ressources/images/background/carte_radio_sondage_guadeloupe.gif');
+				jQuery('#carte_radiosondage_id').attr('useMap', '#map_radio_sondage_guadeloupe');
+				if (indicatif == 'Guadeloupe') return;
+
+			}
+			var d = new Date();
+			var s = "time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+
+			var parametres = '?' + s + '&indicatif=' + indicatif + '&' + s + "&language=fr";
+
+			var url = 'anim_radio_sondage_prevu.php' + parametres;
+			jQuery('#selreg_radio_sondage').val(indicatif);
+
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat(url);
+
+		}
+
+
+		function toVfr(valeur) {
+			if (valeur == null) {
+				var valeur = jQuery('#selvfr').val();
+
+			} else {
+				jQuery('#selvfr').val(valeur);
+			}
+			if (valeur == "") return;
+
+			if (valeur == 'france' || (valeur >= 20 && valeur <= 38) || (valeur >= 44 && valeur <= 66) || (valeur >= 70 && valeur <= 79) || (valeur >= 85 && valeur <= 94)) {
+				jQuery('#img_gaffor').attr('src', 'ressources/images/background/cartevfr.jpg');
+				jQuery('#img_gaffor').attr('useMap', "#cartevfr");
+				jQuery("#img_gaffor").maphilight();
+				if (valeur == 'france') return;
+			} else
+			if (valeur == 'caledonie' || valeur == 'vfr01' || valeur == 'vfr02' || valeur == 'vfr03' || valeur == 'vfr04' || valeur == 'vfr05') {
+				jQuery('#img_gaffor').attr('src', 'ressources/images/background/cartevfr_caledonie.jpg');
+				jQuery('#img_gaffor').attr('useMap', "#cartevfr_caledonie");
+				jQuery("#img_gaffor").maphilight();
+				if (valeur == 'caledonie') return;
+				//toAjaxRequest('gafor_under_construction.php', '' );return;
+			}
+
+
+
+
+			parametres = "mode=html&code=" + valeur;
+			var url = 'bulletin_gaffogafor.php';
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/synaps_aero.css');
+			document.getElementsByTagName('head')[0].appendChild(flink);
+			toAjaxRequest(url, parametres);
+		}
+
+
+		function recherche_station(id, multiple, fct) {
+			if (multiple == true) muultiple = 'true';
+			else multiple = 'false';
+			showPopWin("recherche_station.php?id=" + id + "&multiple=" + multiple, 450, 300, fct, true, "Recherche station");
+		}
+
+		function recherche_station_with_lat_lon(id, id_coord, multiple, fct) {
+			if (multiple == true) muultiple = 'true';
+			else multiple = 'false';
+			showPopWin("recherche_station_with_lat_lon.php?id=" + id + "&id_coord=" + id_coord + "&multiple=" + multiple, 450, 300, fct, true, "Recherche station");
+		}
+
+		function recherche_fir(id, multiple, fct) {
+
+			if (multiple == true) multiple = 'true';
+			else multiple = 'false';
+			showPopWin("recherche_fir.php?id=" + id + "&multiple=" + multiple, 400, 300, fct, true, "Recherche FIR");
+
+
+
+
+		}
+
+		function toFinLocal(valeur) {
+
+			var dep_ok= new Array();
+dep_ok["04"]="FUFR04|LFML";dep_ok["05"]="FUFR04|LFML";dep_ok["06"]="FUFR04|LFML";dep_ok["18"]="FUFR41|LFPB";dep_ok["25"]="FUFR67|LFST";dep_ok["28"]="FUFR75|LFPB";dep_ok["33"]="FUFR33|LFBD";dep_ok["35"]="FUFR35|LFRN";dep_ok["36"]="FUFR41|LFPB";dep_ok["37"]="FUFR41|LFPB";dep_ok["38"]="FUFR73|LFLY";dep_ok["39"]="FUFR67|LFST";dep_ok["41"]="FUFR41|LFPB";dep_ok["45"]="FUFR41|LFPB";dep_ok["54"]="FUFR67|LFST";dep_ok["55"]="FUFR67|LFST";dep_ok["57"]="FUFR67|LFST";dep_ok["59"]="FUFR59|LFQQ";dep_ok["62"]="FUFR59|LFQQ";dep_ok["67"]="FUFR67|LFST";dep_ok["68"]="FUFR67|LFST";dep_ok["69"]="FUFR69|LFLY";dep_ok["70"]="FUFR67|LFST";dep_ok["73"]="FUFR73|LFLY";dep_ok["74"]="FUFR73|LFLY";dep_ok["75"]="FUFR75|LFPB";dep_ok["77"]="FUFR75|LFPB";dep_ok["78"]="FUFR75|LFPB";dep_ok["83"]="FUFR04|LFML";dep_ok["84"]="FUFR04|LFML";dep_ok["88"]="FUFR67|LFST";dep_ok["90"]="FUFR67|LFST";dep_ok["91"]="FUFR75|LFPB";dep_ok["92"]="FUFR75|LFPB";dep_ok["93"]="FUFR75|LFPB";dep_ok["94"]="FUFR75|LFPB";dep_ok["95"]="FUFR75|LFPB";
+
+			if (valeur == null) {
+				var valeur = jQuery('#seldep').val();
+			}
+			//if (! dep_ok.get(valeur) ) return;
+			if (!dep_ok[valeur]) return;
+
+
+			jQuery('#seldep').value = valeur;
+			parametres = "mode=html&code=" + dep_ok[valeur];
+			var url = 'bulletin_finlocal.php';
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/synaps_aero.css');
+			document.getElementsByTagName('head')[0].appendChild(flink);
+			toAjaxRequest(url, parametres);
+
+
+
+
+
+
+		}
+
+		function set_region_vav_for_rap_aero(num_region, region, num_zone, zone) {
+
+			var d = jQuery('#vav_consulte > ul #vav_r_' + num_region + " > ul");
+			if (!d.get(0)) {
+				var d = jQuery('#vav_consulte > ul');
+				d.append("<li id='vav_r_" + num_region + "'>Région " + region + "<ul></ul></li>");
+				var d = jQuery('#vav_consulte > ul #vav_r_' + num_region + " > ul");
+			}
+			var z = jQuery('#vav_consulte > ul #vav_r_' + num_region + " > ul > #vav_z_" + num_zone);
+			if (!z.get(0)) {
+				d.append("<li id='vav_z_" + num_zone + "'>Zone " + zone + "</li>");
+				var data = {};
+				data.alwaysOn = true;
+				jQuery('#zone_vav_' + num_zone).data('maphilight', data).trigger('alwaysOn.maphilight');
+			} else {
+
+				z.remove();
+				var data = {};
+				data.alwaysOn = false;
+				jQuery('#zone_vav_' + num_zone).data('maphilight', data).trigger('alwaysOn.maphilight');
+				if (jQuery('#vav_consulte > ul #vav_r_' + num_region + " > ul > li").length == 0) jQuery('#vav_consulte > ul #vav_r_' + num_region).remove()
+
+			}
+		}
+
+
+
+		function to_contact() {
+			//under_contruction();
+			//return;
+			jQuery('#menu_droit').css('display', 'none');
+			jQuery('#centre').width(750);
+			jQuery('#centre').css('paddingTop', '50px');
+			open("#debut_page", "_self");
+			if (map) {
+				map.destroy();
+				map = null;
+			}
+
+
+			jQuery('#centrebody').attr('innerHTML', '');
+
+
+			var temps = new Date();
+			var ms = temps.getMilliseconds();
+			var min = temps.getMinutes();
+			var sec = temps.getSeconds();
+
+			var tempo = min + sec + ms;
+
+
+
+
+			//on charge le style
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/contact_aero.css?' + tempo);
+			document.getElementsByTagName('head')[0].appendChild(flink);
+
+
+
+
+
+
+			jQuery.ajax({
+				url: "contact.php",
+				type: 'GET',
+
+
+				success: function(transport) {
+
+					var response = transport;
+					jQuery('#centrebody').attr('innerHTML', response);
+
+
+
+				},
+				error: function() {
+					alert("Erreur");
+				},
+				complete: function() {
+					setTimeout("cacheWaiting()", 100);
+
+				},
+				beforeSend: function() {
+					busyProcess();
+				}
+			});
+
+		}
+
+		function to_rapp_vol() {
+			//under_contruction();
+			//return;
+			jQuery('#menu_droit').css('display', 'none');
+			jQuery('#centre').width(750);
+			jQuery('#centre').css('paddingTop', '50px');
+			open("#debut_page", "_self");
+			if (map) {
+				map.destroy();
+				map = null;
+			}
+
+
+			jQuery('#centrebody').attr('innerHTML', '');
+
+
+			var temps = new Date();
+			var ms = temps.getMilliseconds();
+			var min = temps.getMinutes();
+			var sec = temps.getSeconds();
+
+			var tempo = min + sec + ms;
+
+
+
+
+			//on charge le style
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/contact_aero.css?' + tempo);
+			document.getElementsByTagName('head')[0].appendChild(flink);
+
+			jQuery.ajax({
+				url: "rapport_vol.php",
+				type: 'GET',
+
+
+				success: function(transport) {
+
+					var response = transport;
+					jQuery('#centrebody').attr('innerHTML', response);
+
+
+
+				},
+				error: function() {
+					alert("Erreur");
+				},
+				complete: function() {
+					setTimeout("cacheWaiting()", 100);
+
+				},
+				beforeSend: function() {
+					busyProcess();
+				}
+			});
+
+		}
+
+		function to_rapp_meteo() {
+			jQuery('#menu_droit').css('display', 'none');
+			jQuery('#centre').width(750);
+			jQuery('#centre').css('paddingTop', '50px');
+			open("#debut_page", "_self");
+			if (map) {
+				map.destroy();
+				map = null;
+			}
+
+			jQuery('#centrebody').attr('innerHTML', "");
+
+
+
+
+			var temps = new Date();
+			var ms = temps.getMilliseconds();
+			var min = temps.getMinutes();
+			var sec = temps.getSeconds();
+
+			var tempo = min + sec + ms;
+
+
+
+			// on charge le script ...
+			var fscript = document.createElement("script");
+			fscript.setAttribute("type", "text/javascript");
+			fscript.setAttribute("src", './js/rapportmeteo.js?' + tempo);
+			document.getElementsByTagName('head')[0].appendChild(fscript);
+
+
+
+			//on charge le style
+			var flink = document.createElement("link");
+			flink.setAttribute("rel", "stylesheet");
+			flink.setAttribute("type", "text/css");
+			flink.setAttribute("href", './ressources/rapport_meteo.css?' + tempo);
+			document.getElementsByTagName('head')[0].appendChild(flink);
+
+
+
+			jQuery.ajax({
+				url: "rapport_meteo.php",
+				type: 'GET',
+
+
+				success: function(transport) {
+
+					var response = transport;
+
+
+					jQuery('#centrebody').attr('innerHTML', response);
+
+				},
+				error: function() {
+					alert("Erreur");
+				},
+				complete: function() {
+					setTimeout("cacheWaiting()", 100);
+
+
+											jQuery("#date_debut").datepicker({
+							maxDate: '+0D',
+							dateFormat: 'dd/mm/yy',
+							dayNamesMin: ['D', 'L', 'M', 'M', 'J', 'V', 'S'],
+							monthNames: ['Janvier', 'février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+						});
+						jQuery("#date_fin").datepicker({
+							maxDate: '+0D',
+							dateFormat: 'dd/mm/yy',
+							dayNamesMin: ['D', 'L', 'M', 'M', 'J', 'V', 'S'],
+							monthNames: ['Janvier', 'février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+						});
+					
+
+
+
+
+
+				},
+				beforeSend: function() {
+					busyProcess();
+				}
+			});
+
+
+
+
+
+
+
+		}
+
+		function after_date_debut_close() {
+
+
+			if (jQuery('#date_debut').get(0) && jQuery('#date_fin').get(0)) {
+				if (jQuery('#date_debut').val() > jQuery('#date_fin').val()) jQuery('#date_fin').val(jQuery('#date_debut').val());
+
+
+			}
+
+		}
+
+		function after_date_fin_close() {
+
+			if (jQuery('#date_debut').get(0) && jQuery('#date_fin').get(0)) {
+				if (jQuery('#date_fin').val() < jQuery('#date_debut').val()) jQuery('#date_fin').css('backgroundColor', 'red');
+				else jQuery('#date_fin').css('backgroundColor', '');
+
+			}
+		}
+		var thenum_vav = 0;
+
+		function affiche_bulletin_zone_vav(echeance, zone) {
+			if (zone != 0) thenum_vav = zone;
+			if (thenum_vav != 0) {
+				jQuery('div[id^="bulletin_zone_vav_"]').css('display', 'none');
+				jQuery('#bulletin_zone_vav_' + thenum_vav).css('display', 'block');
+
+				jQuery.ajax({
+					url: "cartes_vav_log.php",
+					type: 'GET',
+					data: 'echeance=' + echeance + '&zone=' + thenum_vav,
+					success: function(transport) {
+
+
+						jQuery('#bulletin_zone_content_vav' + thenum_vav).html(transport);
+						//return newwindow('affichevav.php?zones=".$zone->num."');
+						jQuery('#bulletin_zone_vav_imprim' + thenum_vav).html("<a target='_blank' onclick='return affiche_vav(" + thenum_vav + ");'  href=''><img border='0' src='./ressources/images/picto/imprimante.gif' alt=''></a>");
+						//"<a target=\"_blank\" ' onclick=\"return newwindow('affichevav.php?zones=".$zone->num."');\"  href=\"\"><img border=\"0\" src=\"./ressources/images/picto/imprimante.gif\" alt=\"\"></a>";
+					},
+					error: function() {},
+					complete: function() {}
+				});
+			}
+		}
+
+		function affiche_vav(zone) {
+			return newwindow("affichevav.php?zones=" + zone);
+		}
+
+		function gocartevav(echeance, fromMenu) {
+			jQuery('#menu_droit').css('display', 'none');
+			jQuery('#centre').width(750);
+			jQuery('#centre').css('paddingTop', '50px');
+
+			if (fromMenu) thenum_vav = 0;
+
+			if (map) {
+				map.destroy();
+				map = null;
+			}
+
+			var temps = new Date();
+			var ms = temps.getMilliseconds();
+			var min = temps.getMinutes();
+			var sec = temps.getSeconds();
+
+			var tempo = min + '-' + sec + '-' + ms;
+
+			jQuery('#centrebody').attr('innerHTML', "");
+
+			jQuery.ajax({
+				url: "cartes_vav.php",
+				type: 'GET',
+				data: 'echeance=' + echeance + '&time=' + tempo,
+
+				success: function(transport) {
+					var response = transport;
+					jQuery('#centrebody').attr('innerHTML', response);
+				},
+
+				error: function() {
+					alert("Erreur");
+				},
+
+				complete: function() {
+					if (jQuery('#id_map_vav').hasClass('maphilighted') != true) {
+						jQuery('#id_map_vav').maphilight();
+					}
+					affiche_bulletin_zone_vav(echeance, 0);
+					setTimeout("cacheWaiting()", 100);
+				},
+
+				beforeSend: function() {
+					busyProcess();
+				}
+			});
+		}
+
+		function to_sw() {
+			var parametres = 'mode=html';
+			var url = 'sw.php';
+			toAjaxRequest(url, parametres);
+		}
+
+		function to_grande_carte() {
+			jQuery('#menu_droit').css('display', 'none');
+			jQuery('#centre').width(750);
+			jQuery('#centre').css('paddingTop', '50px');
+			open("#debut_page", "_self");
+
+			var reseau = "";
+			if (jQuery('#reseau_last').get(0) && jQuery('#reseau_last').attr('checked') == true) reseau = jQuery('#reseau_last').val();
+			else if (jQuery('#reseau_1').get(0) && jQuery('#reseau_1').attr('checked') == true) reseau = jQuery('#reseau_1').val();
+			else if (jQuery('#reseau_2').get(0) && jQuery('#reseau_2').attr('checked') == true) reseau = jQuery('#reseau_2').val();
+			else if (jQuery('#reseau_3').get(0) && jQuery('#reseau_3').attr('checked') == true) reseau = jQuery('#reseau_3').val();
+			else if (jQuery('#reseau_4').get(0) && jQuery('#reseau_4').attr('checked') == true) reseau = jQuery('#reseau_4').val();
+			else if (jQuery('#reseau_5').get(0) && jQuery('#reseau_5').attr('checked') == true) reseau = jQuery('#reseau_5').val();
+			else if (jQuery('#reseau_6').get(0) && jQuery('#reseau_6').attr('checked') == true) reseau = jQuery('#reseau_6').val();
+
+
+
+
+			if (map) {
+
+				map.destroy();
+				map = null;
+			}
+
+
+			jQuery('#centrebody').attr('innerHTML', "");
+
+
+
+			jQuery.ajax({
+				url: "messaero.php",
+				type: 'GET',
+				data: 'reseau=' + reseau + '&param_opemet=' + param_opemet + '&link_to=grande_carte',
+
+				success: function(transport) {
+
+					var response = transport;
+
+					jQuery('#centrebody').attr('innerHTML', response);
+					jQuery('#map').height(600);
+					jQuery('#map').width(748);
+
+					my_init(center_map, zoom_map);
+
+
+				},
+				error: function() {
+					alert("Erreur");
+				}
+
+			});
+
+
+
+		}
+		/* * * * */
+		function goCartesAnim_front(width, height, layer, prof_avant) {
+
+
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat("anim_carte_front.php?tt=xxx&width=" + width + "&height=" + height + "&layer=" + layer + "&prof_avant=" + prof_avant);
+
+		}
+		/* * * * */
+		function goCartesAnim_isp(width, height, layer, prof_avant) {
+
+
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat("anim_carte_isp.php?tt=xxx&width=" + width + "&height=" + height + "&layer=" + layer + "&prof_avant=" + prof_avant);
+
+		}
+		/* * * * */
+		function goCartesAnim_aerologique(id_carte, echeance, domaine_id, level, top, left, width, height) {
+
+
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat("anim_carte_aerologique.php?domaine=" + domaine_id + "&type_image=" + id_carte + '&echeance=' + echeance + '&level=' + level + '&top=' + top + '&left=' + left + '&width=' + width + '&height=' + height);
+			return false;
+		}
+		/* * * * */
+		function goCartesAnim(id_carte, echeance, domaine_id, fly_level, top, left, width, height) {
+
+			if (jQuery('#choix_type_anim_niveau').attr('checked') == true) {
+				goCartesAnimniveau(id_carte, echeance, domaine_id, fly_level, top, left, width, height);
+				return false;
+			}
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat("anim_carte.php?domaine=" + domaine_id + "&type_image=" + id_carte + '&echeance=' + echeance + '&fly_level=' + fly_level + '&top=' + top + '&left=' + left + '&width=' + width + '&height=' + height);
+			return false;
+		}
+		/* * * * */
+		function goCartesAnimniveau(id_carte, echeance, domaine_id, fly_level, top, left, width, height) {
+			if (jQuery('#choix_type_anim_echeance').attr('checked') == true) {
+				goCartesAnim(id_carte, echeance, domaine_id, fly_level, top, left, width, height);
+				return false;
+			}
+			stop_anim_demande = true;
+			cpt_image_anim = 0;
+			to_anim_sat("anim_carte_niveau.php?domaine=" + domaine_id + "&type_image=" + id_carte + '&echeance=' + echeance + '&fly_level=' + fly_level + '&top=' + top + '&left=' + left + '&width=' + width + '&height=' + height);
+			return false;
+		}
+		/* * * * */
+		function to_anim_sat(url) {
+
+			var d = new Date();
+			var s = "&time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			url += s;
+
+
+
+
+
+
+			jQuery('#menu_droit').css('display', 'none');
+			jQuery('#centre').width(750);
+			jQuery('#centre').css('paddingTop', '50px');
+			open("#debut_page", "_self");
+
+
+
+
+			if (map) {
+
+				map.destroy();
+				map = null;
+			}
+
+			jQuery('#centrebody').attr('innerHTML', "");
+
+
+
+			jQuery.ajax({
+				url: url,
+				type: 'GET',
+				success: function(transport) {
+
+					var response = transport;
+
+					jQuery('#centrebody').attr('innerHTML', response);
+					q = null;
+					if (url.startsWith('anim_sat.php')) {
+
+
+						jQuery("#range_opacity").val(jQuery("img[id^='anim_wait']").css('opacity') * 100);
+
+
+					}
+				},
+				error: function() {
+					alert("Erreur");
+				},
+
+				complete: function() {
+					setTimeout("cacheWaiting()", 100);
+				},
+				beforeSend: function() {
+					busyProcess();
+				}
+
+			});
+
+
+
+		}
+
+		function to_petite_carte() {
+
+			jQuery('#menu_droit').css('display', 'block');
+			jQuery('#centre').width(452);
+			jQuery('#centre').css('paddingTop', '0px');
+			open("#debut_page", "_self");
+			var reseau = "";
+			if (jQuery('#reseau_last').get(0) && jQuery('#reseau_last').attr('checked') == true) reseau = jQuery('#reseau_last').val();
+			else if (jQuery('#reseau_1').get(0) && jQuery('#reseau_1').attr('checked') == true) reseau = jQuery('#reseau_1').val();
+			else if (jQuery('#reseau_2').get(0) && jQuery('#reseau_2').attr('checked') == true) reseau = jQuery('#reseau_2').val();
+			else if (jQuery('#reseau_3').get(0) && jQuery('#reseau_3').attr('checked') == true) reseau = jQuery('#reseau_3').val();
+			else if (jQuery('#reseau_4').get(0) && jQuery('#reseau_4').attr('checked') == true) reseau = jQuery('#reseau_4').val();
+			else if (jQuery('#reseau_5').get(0) && jQuery('#reseau_5').attr('checked') == true) reseau = jQuery('#reseau_5').val();
+			else if (jQuery('#reseau_6').get(0) && jQuery('#reseau_6').attr('checked') == true) reseau = jQuery('#reseau_6').val();
+
+
+			if (!zoom_map) zoom_map = 8;
+			if (!center_map) center_map = new OpenLayers.LonLat(aeroport_prefere.lon, aeroport_prefere.lat)
+
+
+			if (map) {
+
+				map.destroy();
+				map = null;
+			}
+			jQuery('#centrebody').attr('innerHTML', "");
+
+			jQuery.ajax({
+				url: "dossier_personnalise.php",
+				method: 'GET',
+
+
+				success: function(transport) {
+
+					var response = transport;
+					jQuery('#centrebody').attr('innerHTML', response);
+
+					jQuery.ajax({
+						url: "messaero.php",
+						type: 'GET',
+						data: 'reseau=' + reseau + '&param_opemet=' + param_opemet + '&link_to=petite_carte',
+
+						success: function(transport) {
+
+
+							jQuery('#centrebody').attr('innerHTML', jQuery('#centrebody').attr('innerHTML') + transport);
+							jQuery('#map').height(359);
+							jQuery('#map').width(450);
+
+							my_init(center_map, zoom_map);
+
+
+
+
+
+						},
+						error: function() {
+							alert("Erreur");
+						}
+					});
+
+
+				},
+				error: function() {
+					alert("Erreur");
+				}
+
+			});
+
+
+
+		}
+
+		function under_contruction() {
+			toAjaxRequest('under_construction.php', '', '');
+		}
+
+		function toAjaxRequest(url, parametres, method) {
+
+			if (!method) method = 'GET';
+			var d = new Date();
+			var s = "time=";
+			s += d.getDate();
+			s += d.getMonth();
+			s += d.getYear();
+			s += d.getHours();
+			s += d.getMinutes();
+			s += d.getSeconds();
+			s += d.getMilliseconds();
+			if (parametres == "") parametres += s;
+			else parametres += "&" + s;
+			if (map) {
+				map.destroy();
+				map = null;
+			}
+
+
+			jQuery('#centrebody').attr('innerHTML', "");
+
+			jQuery('#menu_droit').css('display', 'block');
+			jQuery('#centre').width(452);
+			jQuery('#centre').css('paddingTop', '0px');
+			open("#debut_page", "_self");
+			jQuery.ajax({
+				url: url,
+				type: method,
+				data: parametres,
+
+				success: function(transport) {
+
+
+					jQuery('#centrebody').attr('innerHTML', transport);
+
+				},
+				error: function() {
+					alert("Erreur");
+				},
+				complete: function() {
+					setTimeout("cacheWaiting()", 100);
+				},
+				beforeSend: function() {
+					busyProcess();
+				}
+			});
+
+		}
+
+
+
+		function busyProcess() {
+
+
+
+			jQuery('#waiting').css('display', 'block');
+		}
+
+
+
+
+		function cacheWaiting() {
+
+			jQuery('#waiting').css('display', 'none');
+
+
+		}
+	</script>
+
+	<script type="text/javascript">
+		var aeroport_prefere={oaci:'LFOT',lon:0.72305555555556,lat:47.431944444444,zoom:6};
+
+		jQuery(function() {
+			jQuery("#ml").dialog({
+				width: 600,
+				height: 500,
+				modal: true,
+				autoOpen: false,
+				show: {
+					effect: "blind",
+					duration: 1000
+				},
+				hide: {
+					effect: "explode",
+					duration: 1000
+				}
+
+			});
+
+
+		});
+	</script>
+
+<link rel="stylesheet" type="text/css" href="/dmap/theme/default/style.css"></head>
+
+
+<body onload=" get_type_carte_from_domaine(jQuery(&quot;#mdomaine&quot;).val());if (jQuery(&quot;#mdomaine_aerologique&quot;).get(0)) get_type_carte_from_domaine_aerologique($(&quot;mdomaine_aerologique&quot;).value); get_favoris();get_recents();to_petite_carte();init_aero3();init_localisation();"><div id="WzTtDiV" style="visibility: hidden; position: absolute; overflow: hidden; padding: 0px; width: 799px; left: -800px; top: 0px;"></div>
+
+	<script src="./js/wz_tooltip.js"></script>
+	<script src="./js/tip_balloon.js"></script>
+	<script src="./js/tip_centerwindow.js"></script>
+	<a name="debut_page"></a>
+
+	<div id="container">
+
+
+		
+	<div id="header">
+
+				 <a target="" href="#" id="logorf">
+				<img src="ressources/images/interface/logorf.jpg">
+				</a>
+				<a target="" href="https://meteofrance.com/" id="logometeo">
+				<img src="ressources/images/interface/logometeo.jpg">
+				</a>
+				<span id="title_header">AEROWEB</span>
+				<table id="cartouche_vigilance" border="0">
+				 <tbody><tr>
+				 <td>
+				<img id="vignette_vigi" title="Vigilance" src="https://webservice.meteofrance.com/files/vigilance/vignette.gif" alt="Vigilance">
+				<a target="_blank" href="https://vigilance.meteofrance.fr" id="masque_vigi">
+				<img src="ressources/images/interface/masque_metropole.png">
+				</a>
+				 </td>
+				 <td><strong>Vigilance<br>Météo</strong></td>
+				 </tr>
+				 </tbody></table><table border="1" id="menu_haut_commande"><tbody><tr><td>
+					<a href="javascript:to_petite_carte();" target="_self">Accueil
+					</a>
+					</td>
+					<td>
+					<a href="preferences.php" target="_self">Préférences
+					</a>
+					</td>
+					<td>
+					<a href="javascript:toAjaxRequest(&quot;./faq.php&quot;,&quot;&quot;);">FAQ
+					</a>	
+					</td>
+					<td>
+					<a href="javascript:toAjaxRequest(&quot;./aide.php&quot;,&quot;&quot;);">Aide et contact
+					</a>
+					</td>
+					<td>
+					<a href="deconnect.php" target="_self">Se déconnecter
+					<img src="ressources/images/interface/lock.png"></a>
+					</td><td><img id="flag" onclick="tolangue();" src="ressources/images/picto/anglais.gif"></td>
+					</tr></tbody></table></div>
+		<div class="gauche">
+
+			<div class="dvols">
+			<div class="head">
+				<table width="100%" height="100%" cellpadding="0">
+					<tbody>
+						<tr align="center">
+							<td valign="middle">Actualités</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<div class="ombre"> </div>
+			<div class="nouvbody"><span class="spanniveau1" style="color:red; font-weight:bold; "><a href="" onclick="return false;" target="_new" style="color:red; font-weight:bold; ">* du 23 décembre 2025 à 17:00 UTC au 03 février 2026 à 07:00 UTC, le service météorologique pourrait ne pas être assuré dans les conditions normales dans l'ensemble des FIR, UIR et aérodromes français.</a></span><br></div></div>
+
+
+
+			<div class="dvols">
+				<div class="head">
+					<table width="100%" height="100%" cellpadding="0">
+						<tbody><tr align="center">
+							<td valign="middle">Dossiers de vols							</td>
+						</tr>
+					</tbody></table>
+				</div>
+				<div class="ombre"></div>
+
+				<div class="dvolsbody">
+					<span class="spanniveau1"><a href="javascript:to_petite_carte();" title="">Dossier personnalisé						</a> </span><br> <span class="spanniveau1"> <a href="javascript:toDossPre();" style="cursor: pointer;" title="">Dossiers pré-établis						</a> </span>
+				</div>
+
+			</div>
+			<div class="metcarte">
+				<div class="metcartehead">
+					<table width="100%" height="100%" cellpadding="0">
+						<tbody><tr align="center">
+							<td valign="middle">Météo à la carte							</td>
+						</tr>
+					</tbody></table>
+				</div>
+				<div class="ombre"></div>
+				<div class="metcartebody">
+					<span class="titreMessages">Messages					</span><br> <span class="spanniveau1"><a href="javascript:showEffect('idmessages',null);" target="_self" title="TAF/METAR/SIGMET/AIRMET/PREDEC/MAA">OPMETS						</a> </span><br>
+					<div class="metmessages" id="idmessages" style="width: 100%; overflow: hidden; display: none;">
+						<table border="0" style="width: 100%;">
+							<tbody><tr>
+								<td><span class="spansouscarte">OACI : </span>
+								</td>
+								<td><input onkeydown="if (event.keyCode==13) validMessages3();" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un ou plusieurs code OACI séparés par un espace.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,3,CENTERMOUSE,true);" type="text" style="text-transform: uppercase;" id="aero3" name="aero3" class="inputIdentification">
+								</td>
+								<td><img src="ressources/images/jumelle.gif" onclick="recherche_station('aero3',true);return false;"></td>
+							</tr>
+
+
+
+
+
+							<tr>
+								<td colspan="3"><img style="cursor: pointer; margin-top: 5px;" onclick="validMessages3();" src="ressources/images/fr/valider.gif" alt="" border="0" align="middle">
+								</td>
+
+
+							</tr><tr>
+
+						</tr></tbody></table>
+					</div>
+
+					<span class="spanniveau1"><a href="javascript:showEffect('idmessages_sigmet',null);" target="_self" title="">SIGMET...						</a> </span><br>
+
+
+
+
+					<div class="metmessages" id="idmessages_sigmet" style="width: 100%; overflow: hidden; display: none;">
+						<table border="0" style="width: 100%;">
+							<tbody><tr>
+								<td><span class="spansouscarte">OACI : 									</span>
+								</td>
+								<td><input onkeydown="if (event.keyCode==13) validMessages3_sigmet();" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un ou plusieurs code OACI séparés par un espace.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,3,CENTERMOUSE,true);" type="text" style="text-transform: uppercase;" id="sigmet3" name="sigmet3" class="inputIdentification">
+								</td>
+								<td><img src="ressources/images/jumelle.gif" onclick="recherche_fir('sigmet3',true);return false;"></td>
+							</tr>
+
+
+
+
+
+							<tr>
+								<td colspan="3"><img style="cursor: pointer; margin-top: 5px;" onclick="validMessages3_sigmet();" src="ressources/images/fr/valider.gif" alt="" border="0" align="middle">
+								</td>
+
+
+							</tr><tr>
+
+						</tr></tbody></table>
+					</div>
+
+
+
+
+
+
+					<!-- 
+					<span class="spanniveau1"><a
+						href='' onclick="return newfullwindow('/complementary/map_visi_plafond.php', 'visi_plafond');"
+						title="">Prévision visibilité et plafond					</a> </span>
+					 -->
+					<span class="spanniveau1"><a href="javascript:to_grande_carte();" title="">Carte METAR-TAF						</a> </span>
+
+					<br> <span class="spanniveau1"><a href="javascript:to_sw();" title="">Avis de météorologie de l'espace						</a> </span>
+
+					<!-- <div class="metcartefoot">-->
+					<br> <span class="titreMessages">Cartes et images					</span><br> <span class="spanniveau1"><a href="javascript:showEffect('idcartes',null);" target="_self" title="">TEMSI-WINTEM...						</a> </span><br>
+
+										<div class="metmessages" id="idcartes" style="">
+						<br>
+						
+
+
+<table width="100%">
+
+
+  <tbody><tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Domaine :  </span></td>
+    <td valign="middle" align="left"><select style="width: 100px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:2px;" id="mdomaine" onchange="get_type_carte_from_domaine(this.value);"> <option selected="" value="19">FRANCE</option><option title="EUROC" value="20">EUROC</option><option title="EUR" value="4">EUR</option><option title="ANTILLES" value="22">ANTILLES</option><option title="ANTILLES GUYANE" value="21">ANTILLES GUYANE</option><option title="ANTILLES-GUYANE-AMERIQUES" value="18">ANTILLES-GUYANE-AMERIQUES</option><option title="ANTILLES-GUYANE-ATLANTIQUE" value="27">ANTILLES-GUYANE-ATLANTIQUE</option><option title="GUYANE" value="28">GUYANE</option><option title="MASCAREIGNES" value="26">MASCAREIGNES</option><option title="NOUVELLE_CALEDONIE-AUSTRALIE" value="44">NOUVELLE_CALEDONIE-AUSTRALIE</option><option title="NOUVELLE_CALEDONIE-JAPON" value="31">NOUVELLE_CALEDONIE-JAPON</option><option title="NOUVELLE_CALEDONIE-MAGENTA" value="32">NOUVELLE_CALEDONIE-MAGENTA</option><option title="NOUVELLE_CALEDONIE-NANDI_WALLIS" value="33">NOUVELLE_CALEDONIE-NANDI_WALLIS</option><option title="NOUVELLE_CALEDONIE-NORFOLK" value="34">NOUVELLE_CALEDONIE-NORFOLK</option><option title="NOUVELLE_CALEDONIE-NOUVELLE_ZELANDE" value="35">NOUVELLE_CALEDONIE-NOUVELLE_ZELANDE</option><option title="NOUVELLE_CALEDONIE-SAIPAN" value="37">NOUVELLE_CALEDONIE-SAIPAN</option><option title="NOUVELLE_CALEDONIE-TAHITI" value="38">NOUVELLE_CALEDONIE-TAHITI</option><option title="NOUVELLE_CALEDONIE-WALLIS" value="36">NOUVELLE_CALEDONIE-WALLIS</option><option title="PACIFIQUE EST" value="25">PACIFIQUE EST</option><option title="PACIFIQUE OUEST" value="24">PACIFIQUE OUEST</option><option title="POLYNESIE" value="23">POLYNESIE</option><option title="TAHITI-HAWAI-JAPON" value="39">TAHITI-HAWAI-JAPON</option><option title="TAHITI-EASTER_ISLAND-CHILI" value="40">TAHITI-EASTER_ISLAND-CHILI</option><option title="TAHITI-POLYNESIE-FRANCAISE" value="43">TAHITI-POLYNESIE-FRANCAISE</option><option title="AUSTRALIE" value="30">AUSTRALIE</option><option title="ASIA (D)" value="13">ASIA (D)</option><option title="ASIA SOUTH" value="8">ASIA SOUTH</option><option title="ASIA SOUTH_MID" value="9">ASIA SOUTH_MID</option><option title="EURAFI C" value="14">EURAFI C</option><option title="EURSAM B" value="16">EURSAM B</option><option title="EURSAM B1" value="15">EURSAM B1</option><option title="INDOC E" value="12">INDOC E</option><option title="MID G" value="7">MID G</option><option title="NAMSAM A" value="17">NAMSAM A</option><option title="NAT" value="3">NAT</option><option title="NAT H" value="6">NAT H</option><option title="NAT H Secours" value="29">NAT H Secours</option><option title="NORTH PACIFIC M" value="10">NORTH PACIFIC M</option><option title="PACIF I" value="5">PACIF I</option><option title="PACIFIC F" value="11">PACIFIC F</option><option title="SIO K" value="1">SIO K</option><option title="SOUTH POLAR J" value="2">SOUTH POLAR J</option></select></td>
+  </tr>
+  
+  <tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Type de cartes</span></td>
+    <td valign="middle" align="left"> <select id="mtype_carte" style="width: 100px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:5px;" onchange="get_fly_level_from_domaine_and_chart(jQuery('#mdomaine').val(),this.value);"><option value="1">TEMSI</option><option value="2">WINTEM</option></select></td>
+  </tr>
+  <tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Niveau de vol:</span></td>
+    <td valign="middle" align="left"> <select id="mniveau" style="width: 100px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:5px;"><option value="20">SFC/150</option></select></td>
+  </tr>
+
+
+
+
+
+</tbody></table>
+
+<table width="100%">
+<tbody><tr valign="middle">
+<td valign="middle" align="right"><input type="radio" checked="" class="radio" id="choix_type_anim_echeance" name="choix_type_anim" value="1"></td>
+<td valign="middle" align="left"><span class="spansouscarte">Animation par échéances</span></td>
+</tr>
+<tr valign="middle">
+<td valign="middle" align="right"><input type="radio" class="radio" id="choix_type_anim_niveau" name="choix_type_anim" value="2"></td>
+<td valign="middle" align="left"><span class="spansouscarte">Animation par niveaux</span></td>
+</tr>
+</tbody></table>
+<img onclick="javascript:goCartesAnim(jQuery('#mtype_carte').val(),'',jQuery('#mdomaine').val(),jQuery('#mniveau').val(),'0px','0px','0px','0px');" style="cursor: pointer;" src="ressources/images/fr/valider.gif" alt="" border="0" align="middle"><br>
+<a href="" target="_self" onclick="validAllCartes();return false;" class="lien6">Voir les cartes disponibles</a><br>	&nbsp;
+					</div>
+
+
+
+					<span class="spanniveau1"><a href="javascript:showEffect('idimages',null);" target="_self" title="">Satellite et radar						</a> </span><br>
+
+
+					<div class="metmessages" id="idimages" style="display: none;">
+						<br>
+						
+<script type="text/javascript">
+function goImages() {
+
+
+stop_anim_demande=true;
+
+cpt_image_anim=0;
+
+to_anim_sat("anim_sat.php?domaine="+jQuery('#mdomaine_image').val()+"&type_image="+jQuery('#mtype_image').val());
+}
+
+function select_type_image_from_domaine()
+{
+var id_domaine= jQuery('#mdomaine_image');
+var id_type_image=jQuery('#mtype_image');
+
+var options_type_image = new Array();
+options_type_image[3]=new Array();
+options_type_image[3] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée', '3': 'radar'};
+options_type_image[2]=new Array();
+options_type_image[2] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée'};
+options_type_image[1]=new Array();
+options_type_image[1] ={'2': 'infrarouge'};
+options_type_image[5]=new Array();
+options_type_image[5] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée', '3': 'radar'};
+options_type_image[6]=new Array();
+options_type_image[6] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée', '3': 'radar'};
+options_type_image[11]=new Array();
+options_type_image[11] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée', '3': 'radar'};
+options_type_image[8]=new Array();
+options_type_image[8] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée', '3': 'radar'};
+options_type_image[10]=new Array();
+options_type_image[10] ={'4': 'visible', '2': 'infrarouge'};
+options_type_image[12]=new Array();
+options_type_image[12] ={'4': 'visible', '2': 'infrarouge'};
+options_type_image[13]=new Array();
+options_type_image[13] ={'4': 'visible', '2': 'infrarouge'};
+options_type_image[7]=new Array();
+options_type_image[7] ={'4': 'visible', '2': 'infrarouge', '3': 'radar'};
+options_type_image[9]=new Array();
+options_type_image[9] ={'4': 'visible', '2': 'infrarouge', '1': 'composition colorée'};
+options_type_image[4]=new Array();
+options_type_image[4] ={'2': 'infrarouge'};
+jQuery('#mtype_image option').remove();
+
+
+
+for (var i in  options_type_image[id_domaine.val()])
+{
+	
+	var oOption=document.createElement("OPTION");
+
+	id_type_image.attr('options').add(oOption);
+
+	oOption.innerHTML=options_type_image[id_domaine.val()][i];
+	oOption.value=i;	
+
+	
+}
+
+	
+
+
+
+}
+
+</script>
+
+<table width="100%">
+
+
+  <tbody><tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Domaine :  </span></td>
+    <td valign="middle" align="left"><select onchange="select_type_image_from_domaine();" style="width: 120px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:2px;" id="mdomaine_image"> <option selected="" value="3">France</option><option value="2">Europe</option><option value="1">Europe/Afrique/Amérique</option><option value="5">Guyane</option><option value="6">Martinique</option><option value="11">Nouvelle-Calédonie</option><option value="8">Guadeloupe</option><option value="10">Polynésie Française</option><option value="12">Tahiti</option><option value="13">Tahiti-US</option><option value="7">Réunion</option><option value="9">Saint-Pierre et Miquelon</option><option value="4">Monde</option></select></td>
+  </tr>
+  <tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Type: </span></td>
+    <td valign="middle" align="left"><select style="width: 120px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:2px;" id="mtype_image"> <option value="1">composition colorée</option><option value="2">infrarouge</option><option value="3">radar</option><option value="4">visible</option></select></td>
+  </tr>
+</tbody></table>
+
+
+<img onclick="javascript:goImages();" style="cursor: pointer;" src="ressources/images/fr/valider.gif" alt="" border="0" align="middle"><br>
+<script>
+select_type_image_from_domaine();
+</script>
+					</div>
+
+
+
+
+
+
+
+											<span class="spanniveau1"><a href="javascript:goCartesAnim_front(600,539,'front/europeouest',-18);" target="_self" title="">Cartes des fronts</a></span><br>
+					
+					<span class="titreMessages">Aérologie</span><br>
+
+					<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/Glossaire_usagers_aero_fr.pdf');" target="_new" title="">Glossaire</a></span><br>
+											<!-- <span class="spanniveau1"><a href="javascript:gocartevav(1, true);" target='_self' title="">Productions aérologiques</a></span><br>
+ -->
+
+
+						<span class="spanniveau1"><a href="javascript:showEffect('idcartes_aerologiques',null);" target="_self" title="">Cartes aérologiques </a></span><br>
+
+
+
+
+						<div class="metmessages" id="idcartes_aerologiques" style="display:none;"><br>
+							
+<script type="text/javascript">
+function goCartes_aerologique() {
+
+
+toAjaxRequest("affichecartes.php?domaine="+jQuery('#mdomaine').val()+"&niveau="+jQuery('#mniveau').val(),"");
+}
+
+</script>
+
+<table width="100%" border="0">
+
+
+  <tbody><tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Domaine :  </span></td>
+    <td valign="middle" align="left"><select style="width: 100px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:2px;" id="mdomaine_aerologique" onchange="get_type_carte_from_domaine_aerologique(this.value);"> <option value="1" selected="true">FRANCE</option><option value="2">Quart SO</option><option value="3">Quart SE</option><option value="4">Quart NE</option><option value="5">Quart NO</option></select></td>
+  </tr>
+  
+  <tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Type de cartes</span></td>
+    <td valign="middle" align="left"> <select id="mtype_carte_aerologique" style="width: 100px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:5px;" onchange="get_level_from_domaine_and_chart_aerologique(jQuery('#mdomaine_aerologique').val(),this.value);"><option value="4">Vent</option><option value="5">Geopotentiel</option><option value="8">Isotherme</option></select></td>
+  </tr>
+  <tr valign="middle">
+    <td valign="middle" align="right"><span class="spansouscarte">Niveau:</span></td>
+    <td valign="middle" align="left"> <select id="mniveau_aerologique" style="width: 100px;color:#000000 ;background-color:#E1F1FF;font-size:11px;font-family:arial;font-weight: bold;margin-right:5px;"><option value="12">500hpa</option><option value="11">600hpa</option><option value="10">700hpa</option><option value="9">850hpa</option><option value="8">900hpa</option><option value="7">950hpa</option><option value="1">10m</option></select></td>
+  </tr>
+
+
+
+
+
+</tbody></table>
+
+
+<img onclick="javascript:goCartesAnim_aerologique(jQuery('#mtype_carte_aerologique').val(),'',jQuery('#mdomaine_aerologique').val(),jQuery('#mniveau_aerologique').val(),'0px','0px','0px','0px');" style="cursor: pointer;" src="ressources/images/fr/valider.gif" alt="" border="0" align="middle"><br>
+<a href="" target="new_window"></a>
+<a class="lien6" target="_self" onclick="return newwindow('ressources/images/fr/carte_relief_modele_ARP.gif');" href="">Carte du relief</a>
+
+<script type="text/javascript">
+
+</script>						</div>
+
+						<!-- 
+<span class="spanniveau1"><a href="javascript:goCartesAnim_isp(1004,1015,'satellite/france/ir_prev',0);"
+target='_self' title="">Cartes satellite prévues</a></span><br>	
+-->
+					
+
+
+
+
+
+
+					<!--  radio sondage carte --> <span class="spanniveau1"><a href="javascript:showEffect('metcarte_radio_sondage','metcartesous_radio_sondage');" target="_self" title="">Radiosondages prévus/observés</a></span><br>
+
+					<div class="metcarte_radio_sondage" id="metcarte_radio_sondage" style="display: none;">
+						
+<img id="carte_radiosondage_id" src="ressources/images/background/carte_radio_sondage.gif" usemap="#map_radio_sondage" style="border-style:none">
+
+<map name="map_radio_sondage">
+	<area shape="circle" coords="50,12,5" onclick="toRadiosondage_prevu('Herstmonceux');" title="Herstmonceux">
+	<area shape="circle" coords="71,13,5" onclick="toRadiosondage_prevu('Lille');" title="Lille">
+	<area shape="circle" coords="66,25,5" onclick="toRadiosondage_prevu('Amiens');" title="Amiens">
+	<area shape="circle" coords="80,36,5" onclick="toRadiosondage_prevu('Epernay');" title="Epernay">
+	<area shape="circle" coords="99,41,5" onclick="toRadiosondage_prevu('Nancy');" title="Nancy">
+	<area shape="circle" coords="127,40,5" onclick="toRadiosondage_prevu('Stuttgart');" title="Stuttgart">
+	<area shape="circle" coords="102,51,5" onclick="toRadiosondage_prevu('Epinal');" title="Epinal">
+	<area shape="circle" coords="110,52,5" onclick="toRadiosondage_prevu('Colmar');" title="Colmar">
+	<area shape="circle" coords="59,38,5" onclick="toRadiosondage_prevu('Trappes');" title="Trappes">
+	<area shape="circle" coords="32,50,5" onclick="toRadiosondage_prevu('Rennes');" title="Rennes">
+	<area shape="circle" coords="9,44,5" onclick="toRadiosondage_prevu('Brest');" title="Brest">
+	<area shape="circle" coords="46,72,5" onclick="toRadiosondage_prevu('Poitiers');" title="Poitiers">
+	<area shape="circle" coords="62,66,5" onclick="toRadiosondage_prevu('Bourges');" title="Bourges">
+	<area shape="circle" coords="85,66,5" onclick="toRadiosondage_prevu('Beaune');" title="Beaune">
+	<area shape="circle" coords="132,85,5" onclick="toRadiosondage_prevu('Milan');" title="Milan">
+	<area shape="circle" coords="98,83,7" onclick="toRadiosondage_prevu('Chambery');" title="Chambery">
+	<area shape="circle" coords="87,81,7" onclick="toRadiosondage_prevu('Lyon');" title="Lyon">
+	<area shape="circle" coords="74,91,5" onclick="toRadiosondage_prevu('Saint-Flour');" title="Saint-Flour">
+	<area shape="circle" coords="56,102,5" onclick="toRadiosondage_prevu('Cahors');" title="Cahors">
+	<area shape="circle" coords="37,96,5" onclick="toRadiosondage_prevu('Bordeaux');" title="Bordeaux">
+	<area shape="circle" coords="7,117,5" onclick="toRadiosondage_prevu('Santander');" title="Santander">
+	<area shape="circle" coords="54,120,5" onclick="toRadiosondage_prevu('Saint-Girons');" title="Saint-Girons">
+	<area shape="circle" coords="85,107,5" onclick="toRadiosondage_prevu('Nimes');" title="Nimes">
+	<area shape="circle" coords="102,98,5" onclick="toRadiosondage_prevu('Gap');" title="Gap">
+	<area shape="circle" coords="114,128,5" onclick="toRadiosondage_prevu('Ajaccio');" title="Ajaccio">
+	<area shape="circle" coords="106,69,5" onclick="toRadiosondage_prevu('Payerne');" title="Payerne">
+	<area shape="circle" coords="28,113,5" onclick="toRadiosondage_prevu('Biarritz');" title="Biarritz">
+	<area shape="circle" coords="46,112,5" onclick="toRadiosondage_prevu('Auch');" title="Auch">
+	<area shape="circle" coords="69,120,5" onclick="toRadiosondage_prevu('Perpignan');" title="Perpignan">
+	<area shape="circle" coords="74,110,5" onclick="toRadiosondage_prevu('Florac');" title="Florac">
+	<area shape="circle" coords="74,80,5" onclick="toRadiosondage_prevu('Vichy');" title="Vichy">
+	<area shape="circle" coords="100,110,5" onclick="toRadiosondage_prevu('Manosque');" title="Manosque">
+	<area shape="circle" coords="60,53,5" onclick="toRadiosondage_prevu('Orleans');" title="Orléans">
+	<area shape="circle" coords="90,54,5" onclick="toRadiosondage_prevu('Chaumont');" title="Chaumont">
+	<area shape="circle" coords="46,42,5" onclick="toRadiosondage_prevu('Alencon');" title="Alencon">
+	<area shape="circle" coords="52,31,5" onclick="toRadiosondage_prevu('Rouen');" title="Rouen">
+	
+</map>
+<map name="map_radio_sondage_reunion">
+	<area shape="circle" coords="93,109,10" onclick="toRadiosondage_prevu('Gillot');" title="Gillot">
+	<area shape="circle" coords="106,103,10" onclick="toRadiosondage_prevu('Maurice');" title="Maurice">
+	<area shape="circle" coords="52,102,10" onclick="toRadiosondage_prevu('Ivato');" title="Ivato">
+	<area shape="circle" coords="92,13,10" onclick="toRadiosondage_prevu('Seychelles');" title="Seychelles">
+	
+</map>
+<map name="map_radio_sondage_caledonie">
+	<area shape="circle" coords="99,106,5" onclick="toRadiosondage_prevu('Noumea');" title="Noumea">
+	<area shape="circle" coords="98,94,5" onclick="toRadiosondage_prevu('Mont Dzumac');" title="Mont Dzumac">
+	<area shape="circle" coords="86,93,5" onclick="toRadiosondage_prevu('Mont Mou');" title="Mont Mou">
+	<area shape="circle" coords="73,88,5" onclick="toRadiosondage_prevu('La Ouenghi');" title="La Ouenghi">
+	<area shape="circle" coords="63,80,5" onclick="toRadiosondage_prevu('Ouatom');" title="Ouatom">
+	<area shape="circle" coords="55,75,5" onclick="toRadiosondage_prevu('Poe');" title="Poe">
+	
+	
+</map>
+<map name="map_radio_sondage_tahiti">
+	<area shape="circle" coords="47,69,5" onclick="toRadiosondage_prevu('Faaa');" title="Faaa">
+	<area shape="circle" coords="135,118,5" onclick="toRadiosondage_prevu('Rapa');" title="Rapa">
+	<area shape="circle" coords="126,19,5" onclick="toRadiosondage_prevu('Hiva Oa');" title="Hiva Oa">
+	<area shape="circle" coords="130,68,5" onclick="toRadiosondage_prevu('Mangareva');" title="Mangareva">
+	
+</map>
+<map name="map_radio_sondage_guyane">
+	<area shape="circle" coords="119,80,5" onclick="toRadiosondage_prevu('Cayenne-Matoury');" title="Cayenne-Matoury">
+	
+	
+</map>
+<map name="map_radio_sondage_guadeloupe">
+	<area shape="circle" coords="78,58,5" onclick="toRadiosondage_prevu('Le Raizet');" title="Le Raizet">
+	
+	
+</map>					</div>
+					<div class="metcartesous" id="metcartesous_radio_sondage" style="display: none;"><span class="spantitresouscarte">Accès Direct</span><br>
+						<span class="spansouscarte">Nom de région :</span>
+						<select class="selreg" id="selreg_radio_sondage" onchange="javascript:toRadiosondage_prevu(null);">
+						<optgroup label="France">
+							<option selected="" value="france">Carte</option> -&gt;
+							<option value="Ajaccio">Ajaccio</option>
+							<option value="Alencon">Alençon</option>
+							<option value="Amiens">Amiens</option>
+							<option value="Auch">Auch</option>
+							<option value="Beaune">Beaune</option>
+							<option value="Biarritz">Biarritz</option>
+							<option value="Bordeaux">Bordeaux</option>
+							<option value="Bourges">Bourges</option>
+							<option value="Brest">Brest</option>
+							<option value="Cahors">Cahors</option>
+							<option value="Chambery">Chambery</option>
+							<option value="Chaumont">Chaumont</option>
+							<option value="Colmar">Colmar</option>
+							<option value="Epernay">Epernay</option>
+							<option value="Epinal">Epinal</option>
+							<option value="Florac">Florac</option>
+							<option value="Gap">Gap</option>
+							<option value="Lille">Lille</option>
+							<option value="Lyon">Lyon</option>
+							<option value="Manosque">Manosque</option>
+							<option value="Nancy">Nancy</option>
+							<option value="Nimes">Nimes</option>
+							<option value="Orleans">Orléans</option>
+							<option value="Perpignan">Perpignan</option>
+							<option value="Poitiers">Poitiers</option>
+							<option value="Rennes">Rennes</option>
+							<option value="Rouen">Rouen</option>
+							<option value="Saint-Flour">Saint-Flour</option>
+							<option value="Saint-Girons">Saint-Girons</option>
+							<option value="Trappes">Trappes</option>
+							<option value="Vichy">Vichy</option>
+							</optgroup>
+						
+
+
+							<optgroup label="Proche-Europe">
+
+								<!--<option value='france'>Proche-Europe</option>-->
+								<option value="Herstmonceux">Herstmonceux</option>
+								<option value="Milan">Milan</option>
+								<option value="Payerne">Payerne</option>
+								<option value="Santander">Santander</option>
+								<option value="Stuttgart">Stuttgart</option>
+
+							</optgroup>
+
+
+							<optgroup label="Océan Indien">
+
+							<option value="ocean_indien">Carte</option>
+							<option value="Gillot">Gillot</option>
+							<option value="Ivato">Ivato</option>
+							<option value="Maurice">Maurice</option>
+							<option value="Seychelles">Seychelles</option>
+							</optgroup>
+
+							<optgroup label="Nouvelle Calédonie">
+							<option value="caledonie">Carte</option>
+							<option value="La Ouenghi">La Ouenghi</option>
+							<option value="Mont Dzumac">Mont Dzumac</option>
+							<option value="Mont Mou">Mont Mou</option>
+							<option value="Noumea">Noumea</option>
+							<option value="Ouatom">Ouatom</option>
+							<option value="Poe">Poe</option>
+							</optgroup>
+
+							<optgroup label="Pacifique">
+							<option value="Tahiti">Carte</option>
+							<option value="Faaa">Faaa</option>
+							<option value="Rapa">Rapa</option>
+							<option value="Hiva Oa">Hiva Oa</option>
+							<option value="Mangareva">Mangareva</option>
+							</optgroup>
+
+							<optgroup label="Guyane">
+							<option value="Guyane">Carte</option>
+							<option value="Cayenne-Matoury">Cayenne-Matoury</option>
+							</optgroup>
+
+							<optgroup label="Guadeloupe"> 
+							<option value="Guadeloupe">Carte</option>
+							<option style="text-indent: 30px;" value="Le Raizet">Le Raizet</option>
+							</optgroup>
+						</select>
+					</div>
+
+					<span class="spanniveau1"><a href="http://aviation-mobile.meteo.fr/index.php?link=briefing" target="_self" title="">Briefing</a></span><br>
+
+					<span class="titreMessages">Produits complémentaires</span><br>
+
+
+
+					<span class="spanniveau1"><a href="javascript:void(0);" onclick="newfullwindow('/complementary/sigmets_graph.php', 'sigmets_graph');" target="_self" title="">Sigmet graphique (France)</a></span><br><span class="spanniveau1"><a href="javascript:void(0);" onclick="connect_maille_fine('fr')" target="_self" title="">Prévision/Observation</a></span><br><br>
+				</div>
+				<div class="plusloin">
+					<div class="head">
+						<table width="100%" height="100%" cellpadding="0">
+							<tbody><tr align="center">
+								<td valign="middle">Aller plus loin								</td>
+							</tr>
+						</tbody></table>
+					</div>
+					<div class="ombre"></div>
+
+					<div class="plusloinbody">
+						<span class="titreMessages">Rapport de vol</span>
+						<br><span class="spanniveau1"><a href="javascript:toAjaxRequest(\&quot;./rapport_vol.php\&quot;,\&quot;\&quot;);" onclick="to_rapp_vol();return false;" target="_self" title="">Saisir un rapport de vol							</a></span>
+
+						<!--<br> <span class="spanniveau1"> <a href='' onclick="return newwindow('./Rapport_vol/rapport_aero_v12.php',800);" target='_new' title="">Sur les conditions aérologiques							</a>
+						-->
+
+						<!--</span><br> <span class="spanniveau1"><a href="accueil.php?link_to=rapmeteo" onclick="to_rapp_meteo();return false;" target='_self' title="">Sur le givrage ou la turbulence							</a>-->
+						<!--</span><br> <span class="spanniveau1"><a href='' onclick="return newwindow('./Rapport_vol/rapport_meteo_v12.php',800);" target='_new' title="">Sur le givrage ou la turbulence							</a>-->
+
+						<br> <span class="titreMessages">Outils						</span><br> <span class="spanniveau1"><a href="javascript:recherche_station('',false);" title="">Recherche station							</a>
+
+						</span><br> <span class="spanniveau1"><a href="javascript:recherche_fir('',false);" title="">Recherche FIR							</a> </span><br> <span class="titreMessages">Documentation						</span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/guide_aviation.pdf');" target="_new" title="">Guide Aviation							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/tendance_automatique.pdf');" target="_new" title="">Tendance automatique							</a> </span><br>
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/amdt78.pdf');" target="_new" title="">Résumé amendement 78							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/fiche_givrage.pdf');" target="_new" title="">Fiche Givrage							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/fiche_turbulence.pdf');" target="_new" title="">Fiche Turbulence							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/fiche_grele.pdf');" target="_new" title="">Fiche grêle							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/fiche_images_radar_satellite.pdf');" target="_self" title="">Images radar et satellites							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/PassageVAAeroweb2.pdf');" target="_self" title="">Visibilité aéronautique							</a> </span><br>
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/comprendre_letaf.pdf');" target="_self" title="">Interprétation du TAF							</a> </span><br>
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/rapport_aero_annuel.pdf');" target="_new" title="">Rapport Aéro annuel							</a> </span><br>
+
+						<span class="titreMessages">Liens utiles						</span><br> <span class="spanniveau1"><a href="https://aviation-mobile.meteo.fr" target="_self" title="">AEROWEB Version mobile							</a> </span><br>
+						<!-- 
+						<span class="spanniveau1"><a href='javascript:void(0);'
+							onclick="show_carte_obs_meteo();"
+							title="">Observations						</a> </span><br> 
+						 -->
+						<span class="spanniveau1"><a href="" onclick="return newwindow_menubar('https://aerodidact.enm-toulouse.fr/');" target="_new" title="">Didacticiel ENM							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('http://www.sia.aviation-civile.gouv.fr/');" target="_new" title="">SIA							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('https://sofia-briefing.aviation-civile.gouv.fr/');" target="_new" title="">SOFIA Briefing							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('https://www.ecologique-solidaire.gouv.fr/direction-generale-laviation-civile-dgac');" target="_new" title="">DGAC							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('http://vaac.meteo.fr');" target="_new" title="">Activité volcanique							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('http://www.bea.aero/');" target="_new" title="">BEA							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('https://library.wmo.int/index.php?lvl=notice_display&amp;id=13618');" target="_new" title="">Manuel des codes OMM							</a> </span><br>
+
+
+
+						<span class="titreMessages">Droits						</span><br> <span class="spanniveau1"><a href="" onclick=" jQuery('#ml').dialog('open'); return false;" target="_new" title="">Mentions légales							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('http://www.meteofrance.com/droits-de-reproduction');" target="_new" title="">Droits de reproduction							</a> </span><br>
+
+						<span class="spanniveau1"><a href="" onclick="return newwindow('/documentation/conditions_generales_service_aeroweb.pdf');" target="_new" title="">Conditions générales							</a> </span><br> <br>
+					</div>
+				</div>
+			</div>
+
+			
+				<div class="droite" id="menu_droit" style="display: block;">
+
+					<div class="bdroite">
+
+						<div class="bdroitehaut">
+							<table width="100%" height="100%" cellpadding="0">
+								<tbody><tr align="center">
+									<td valign="middle">Mes dossiers de vol favoris									</td>
+								</tr>
+							</tbody></table>
+						</div>
+						<div class="bdroitebody" id="dossiers_favoris"><table width="298px" border="0" cellspacing="0" cellpadding="0" align="center" style="border: 0px solid red;"><tbody><tr><td class="cellCoulBlanche" width="30px" height="15px" align="left" style="border: 0px solid lime;"><a href="" onclick="return newwindow('dossier_personnalise_show_pdf.php?id=102739&amp;origine=favoris');" target="_new" title="Impression au format PDF"><img title="Impression au format PDF" src="ressources/images/picto/imprimante-bch.jpg" alt="" border="0"></a></td><td class="cellCoulBlanche" align="left" width="268px" style="border: 0px solid red;"><a href="#" onclick="dossier_vol_show_html_from_favoris(102739);return false;" title="Via: LFBI" class="lien6">LFOT  via(LFBI)</a></td></tr><tr><td class="cellCoulBleue" colspan="2" align="center"><a href="" title="" onclick="affiche_all_favoris();return false;" class="lien6">Tous mes favoris</a></td></tr></tbody></table></div>
+						<div class="bdroitebas"></div>
+					</div>
+
+					<div class="bdroite">
+						<div class="bdroitehaut">
+							<table width="100%" height="100%" cellpadding="0">
+								<tbody><tr align="center">
+									<td valign="middle">Mes dossiers de vol récents									</td>
+								</tr>
+							</tbody></table>
+						</div>
+						<div class="bdroitebody" align="center" id="dossiers_recents"><table width="298px" border="0" cellspacing="0" cellpadding="0" style="border: 0px solid red;"><tbody><tr><td width="30" height="15" class="cellCoulBlanche" align="left"><a href="" onclick="return newwindow('dossier_personnalise_show_pdf.php?origine=recents&amp;id=3518436');" target="_new" title="Impression au format PDF"><img title="Impression au format PDF" src="ressources/images/picto/imprimante-bch.jpg" alt="" border="0"></a></td><td class="cellCoulBlanche" align="left"><a href="#" onclick="dossier_vol_show_html_from_recents(1,3518436);return false;" title="Via: LFBI" class="lien6">LFOT  via(LFBI)</a></td></tr><tr><td width="30" height="15" class="cellCoulBleue" align="left"><a href="" onclick="return newwindow('dossier_personnalise_show_pdf.php?origine=recents&amp;id=3507537');" target="_new" title="Impression au format PDF"><img title="Impression au format PDF" src="ressources/images/picto/imprimante-ble.jpg" alt="" border="0"></a></td><td class="cellCoulBleue" align="left"><a href="#" onclick="dossier_vol_show_html_from_recents(2,3507537);return false;" title="Via: LFBN LFBI" class="lien6">LFOT-LFBH via(LFBN LFBI)</a></td></tr><tr><td width="30" height="15" class="cellCoulBlanche" align="left"><a href="" onclick="return newwindow('dossier_personnalise_show_pdf.php?origine=recents&amp;id=3506623');" target="_new" title="Impression au format PDF"><img title="Impression au format PDF" src="ressources/images/picto/imprimante-bch.jpg" alt="" border="0"></a></td><td class="cellCoulBlanche" align="left"><a href="#" onclick="dossier_vol_show_html_from_recents(3,3506623);return false;" title="" class="lien6">LFOT-LFBI</a></td></tr><tr><td width="30" height="15" class="cellCoulBleue" align="left"><a href="" onclick="return newwindow('dossier_personnalise_show_pdf.php?origine=recents&amp;id=3434756');" target="_new" title="Impression au format PDF"><img title="Impression au format PDF" src="ressources/images/picto/imprimante-ble.jpg" alt="" border="0"></a></td><td class="cellCoulBleue" align="left"><a href="#" onclick="dossier_vol_show_html_from_recents(4,3434756);return false;" title="" class="lien6">LFOT</a></td></tr><tr><td width="30" height="15" class="cellCoulBlanche" align="left"><a href="" onclick="return newwindow('dossier_personnalise_show_pdf.php?origine=recents&amp;id=3501877');" target="_new" title="Impression au format PDF"><img title="Impression au format PDF" src="ressources/images/picto/imprimante-bch.jpg" alt="" border="0"></a></td><td class="cellCoulBlanche" align="left"><a href="#" onclick="dossier_vol_show_html_from_recents(5,3501877);return false;" title="" class="lien6">LFOT-LFBU</a></td></tr></tbody></table></div>
+						<div class="bdroitebas"></div>
+					</div>
+
+					<div class="bdroitevert">
+						<div class="bdroitehautvert">
+							<table width="100%" height="100%" cellpadding="0">
+								<tbody><tr align="center">
+									<td align="right" valign="middle"><a class="lien6" href="javascript:ajax_validMessage();">Message : 											<span id="showspan">LFOT </span> </a></td>
+									<td valign="middle"><a href="javascript:changeoaci();" class="lien6">Modifier l'aérodrome										</a></td>
+								</tr>
+
+							</tbody></table>
+						</div>
+						<div class="bdroitebodyvert">
+							<div id="tabshow" class="mycellContenuTabClassiquePetit2" style="border:0px solid red;margin-left:5px;"><br><span class="texte3"></span><span class="texte3">LFOT</span> <span class="texte3">TOURS VAL DE LOIRE</span><br><table cellpadding="0" cellspacing="0" border="0">
+<tbody><tr valign="top">
+<td><span class="texte2">METAR: </span><span class="texte1" style="">LFOT 012030Z AUTO 22008KT 9999 SCT016 BKN022 BKN029 09/08<br>Q1001=</span>
+<br>
+</td>
+</tr>
+</tbody></table><table cellpadding="0" cellspacing="0" border="0">
+<tbody><tr valign="top">
+<td><span class="texte2">TAF LONG: </span><span class="texte1" style="">AMD LFOT 011822Z 0118/0218 CNL=</span>
+<br>
+</td>
+</tr>
+</tbody></table><br><span class="texte3">FIR </span><span class="texte3">LFFF</span> <span class="texte3">FRANCE</span><br><table border="0">
+<tbody><tr valign="top">
+<td width="10px"></td><td><span class="texte2">SIGMET</span> <span class="texte2">reçu le Dimanche 1 février 2026 à 18:38 UTC</span>
+<br>
+<span class="texte1" style="color:red;">LFFF SIGMET U01 VALID 011845/012200 LFPW-<br>LFFF PARIS FIR/UIR SEV TURB FCST W OF LINE N4830 W00015 - N4715<br>E00045 FL300/400 MOV NE 30KT NC=</span>
+<br>
+</td>
+</tr>
+</tbody></table><br>Les messages SIGMET présentés ici sont uniquement ceux conformes à l'Annexe 3 de l'OACI.<br><br>
+<input type="hidden" id="lat_message" value="47.431944444444"><input type="hidden" id="lon_message" value="0.72305555555556"></div><input type="hidden" value="LFOT" id="hidden"> 
+
+</div>
+						<div class="bdroitefootvert"></div>
+					</div>
+				</div>
+
+			
+						<div id="centre" class="centre" style="width: 452px; padding-top: 0px;">
+				<!--   tous les traitements -->
+
+				<map name="">
+					<area onclick="javascript:toTactique();">
+				</map>
+
+
+
+				<div id="waiting" class="waitingBackground" style="display:none;background: url('ressources/images/fr/ajax-loader.gif');background-repeat: no-repeat; background-position: center;">
+
+				</div>
+
+
+
+				<div id="centrebody">
+
+
+<div id="dossier_personnalise_conteneur">
+<div align="justify" style="font-size: 9pt; color: red; border:1px solid red;border-radius: 5px;margin:10px 0px;padding: 1em; background-color:#ffdddd;">
+	Dans un contexte de cybermenaces, et afin de préserver la sécurité de vos informations personnelles, nous vous invitons à respecter les recommandations disponibles sur le site <a style="font-size: 9pt;" href="http://cybermalveillance.gouv.fr" target="_blank">cybermalveillance.gouv.fr</a>. Parmi les consignes les plus importantes, différenciez les mots de passe sur chacun de vos espaces en ligne et changez-les régulièrement.</div>
+
+
+<table border="0" cellspacing="0" cellpadding="0" class="tabConteneurTabClassiquePetit">
+	<tbody><tr>
+		<td class="cellEnteteConteneurTitrePetit">Dossier de vol personnalisé</td>
+	</tr>
+	
+</tbody></table>	
+<table border="0" cellspacing="0" cellpadding="0" class="tabConteneurTabClassiquePetit">	
+	<tbody><tr>
+		<td id="cellVolLocal" valign="middle"><input type="radio" name="tvol" id="" value="local" checked="" onclick="select_type_dossier(this);return true;">&nbsp;<span onmouseout="UnTip();" onmouseover="Tip('Le dossier de vol pour un vol local&lt;br&gt; contient l\'ensemble des messages&lt;br&gt;METAR, TAF, SPECI, SIGMET&lt;br&gt;dans un rayon de 80MN autour de&lt;br&gt;l\'aérodrome choisi.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);">Vol local (80MN)</span>   
+		 </td>
+	</tr>
+	
+	
+	
+</tbody></table>
+
+		<div valign="top" id="cellVolLocalOuvert">
+		<table border="0" cellspacing="0" cellpadding="0">
+			<tbody><tr>
+				<td colspan="3" height="5"></td>
+				<td rowspan="3" style="border:0px solid red;"><span class="texte3" id="error_local" style="width:100%;height:100%;color:red"></span></td>
+			</tr>
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td colspan="2"><span class="texte3">Aérodrome de départ:</span></td>
+				
+			</tr>
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td style="" valign="middle"><input ondblclick="recherche_station('aero_depart_loc',false);return false;" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero" type="text" name="aero_depart_loc" id="aero_depart_loc" style="text-transform: uppercase;" size="4" value="LFOT">
+				</td>
+				<td align="left"><img onclick="recherche_station('aero_depart_loc',false);return false;" src="ressources/images/jumelle.gif">				</td>
+
+			</tr>
+			
+			
+			
+			<tr>
+			<td width="50">&nbsp;</td>
+				<td colspan="3" class="texte1">
+				Domaine: 
+				<span class="texte8" style="font-size:8px" id="span_domaine_local">FRANCE</span>
+				
+				<br> FL 20&lt;&nbsp;&gt;<span class="texte1" id="span_fly_level_local">550</span> </td>
+			</tr>
+			
+			<tr>
+			<td width="50">&nbsp;</td>
+				<td colspan="3" class="texte1">
+				Cendres volcaniques:				<span class="texte8" style="font-size:8px" id="span_vaavag_local"></span> 
+				
+				</td>
+			</tr>
+			<tr>
+			<td width="50">&nbsp;</td>
+				<td colspan="3" class="texte1">
+				Cyclones tropicaux: 
+				<span class="texte8" style="font-size:8px" id="span_tcatcag_local"></span><br>
+				(<a class="texte1" href="#" id="modif_local" onclick="dossier_perso_change_domaine();return false;">modifier</a>)
+				</td>
+			</tr>
+						
+			
+			
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td colspan="1" class="texte1">
+				<div style="float: left;display:inline"><a href="#"><img src="./ressources/images/fr/valider-mon-vol-local.gif" alt="" border="0" onclick="valider_vol_local();return false;"></a></div>
+				</td>
+				<td>
+				<div style=" padding-right: 150px;display:inline"><img onclick="imprimer_vol_local();" onmouseout="UnTip();" onmouseover="Tip('Visualiser au&lt;br&gt;format PDF, pour&lt;br&gt;imprimer le dossier de vol', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" src="./ressources/images/picto/imprimante-trajet.jpg" alt=" " border="0"></div>
+				</td>
+			</tr>
+		</tbody></table>
+		</div>
+	
+<table border="0" cellspacing="0" cellpadding="0" class="tabConteneurTabClassiquePetit">
+	
+	<tbody><tr>
+		<td id="cellTrajet"><input type="radio" name="tvol" id="" value="trajet" onclick="select_type_dossier(this);return true;">&nbsp;<span onmouseout="UnTip();" onmouseover="Tip('Le dossier de vol sur un trajet&lt;br&gt;contient l\'ensemble des messages&lt;br&gt;dans un couloir de 40 MN', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);">Trajet</span>
+		
+		
+	</td></tr>
+	
+	
+</tbody></table>
+
+
+
+		<div valign="top" id="cellTrajetOuvert" style="display:none;">
+		<table border="0" cellspacing="0" cellpadding="0">
+			<tbody><tr>
+				<td colspan="3" height="10"></td>
+				<td rowspan="7" valign="top" style="border:0px solid red;"><span class="texte3" id="error_trajet" style="width:100%;height:100%;color:red"></span></td>
+			</tr>
+			
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td colspan="2"><span class="texte3">Aérodrome de départ:</span></td>
+			</tr>
+			<tr>
+				<td width="50" align="right"></td>
+				<td><input ondblclick="recherche_station('aero_depart_trajet',false);return false;" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero" value="LFOT" type="text" name="aero_depart_trajet" id="aero_depart_trajet" style="text-transform: uppercase;" size="4">
+					
+				</td>
+				<td align="left"><img onclick="recherche_station('aero_depart_trajet',false);return false;" src="ressources/images/jumelle.gif">				</td>
+			</tr>
+			
+			
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td colspan="2"><span class="texte3">Etapes</span> 
+				<table>
+				<tbody><tr>
+					
+					<td><input ondblclick="recherche_station('aero_etapes_trajet1',false);return false;" style="display:none" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero_etapes" value="" type="text" name="aero_etapes_trajet1" id="aero_etapes_trajet1">
+					</td>
+					<td align="left"><img id="aero_etapes_recherche1" onclick="recherche_station('aero_etapes_trajet1',false);return false;" src="ressources/images/jumelle.gif" style="display:none">				</td>
+				
+
+	
+				
+				<td><input ondblclick="recherche_station('aero_etapes_trajet2',false);return false;" style="display:none" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero_etapes" value="" type="text" name="aero_etapes_trajet2" id="aero_etapes_trajet2">
+					
+				</td>
+				<td align="left"><img id="aero_etapes_recherche2" onclick="recherche_station('aero_etapes_trajet2',false);return false;" src="ressources/images/jumelle.gif" style="display:none">				</td>
+				
+				</tr>
+				
+				<tr id="ligne2" style="visibility:visible;">
+				
+				<td><input ondblclick="recherche_station('aero_etapes_trajet3',false);return false;" style="display:none" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero_etapes" value="" type="text" name="aero_etapes_trajet3" id="aero_etapes_trajet3">
+					
+				</td>
+				<td align="left"><img id="aero_etapes_recherche3" onclick="recherche_station('aero_etapes_trajet3',false);return false;" src="ressources/images/jumelle.gif" style="display:none">				</td>
+				
+				<td>
+				<input ondblclick="recherche_station('aero_etapes_trajet4',false);return false;" style="display:none" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero_etapes" value="" type="text" name="aero_etapes_trajet4" id="aero_etapes_trajet4">
+					
+				</td>
+				<td align="left"><img id="aero_etapes_recherche4" onclick="recherche_station('aero_etapes_trajet4',false);return false;" src="ressources/images/jumelle.gif" style="display:none">				</td>
+				</tr>
+				
+				<tr id="ligne3" style="visibility:visible">
+
+				<td><input ondblclick="recherche_station('aero_etapes_trajet5',false);return false;" style="display:none" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero_etapes" value="" type="text" name="aero_etapes_trajet5" id="aero_etapes_trajet5">
+					
+				</td>
+				<td align="left"><img id="aero_etapes_recherche5" onclick="recherche_station('aero_etapes_trajet5',false);return false;" src="ressources/images/jumelle.gif" style="display:none">				</td>
+				
+				<td><input ondblclick="recherche_station('aero_etapes_trajet6',false);return false;" style="display:none" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero_etapes" value="" type="text" name="aero_etapes_trajet6" id="aero_etapes_trajet6">					
+				</td>
+				<td align="left"><img id="aero_etapes_recherche6" onclick="recherche_station('aero_etapes_trajet6',false);return false;" src="ressources/images/jumelle.gif" style="display:none">				</td>
+				</tr>
+				<tr><td class="texte1" colspan="2" onclick="var cpt=1;while (jQuery('#aero_etapes_trajet'+cpt).get(0)){if (jQuery('#aero_etapes_trajet'+cpt).css('display')=='none') {jQuery('#aero_etapes_trajet'+cpt).css('display','block');jQuery('#aero_etapes_recherche'+cpt).css('display','block');if (cpt==6) this.style.display='none'; break;} cpt++;} return false;"> <a href="javascript:return false;" class="texte1">Ajouter une étape</a></td></tr>
+				</tbody></table>
+				</td>
+			</tr>
+			
+			
+			
+			
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td colspan="2"><span class="texte3">Aérodrome d'arrivée:</span></td>
+				
+				
+			</tr>
+			<tr>
+				<td width="50" align="right"></td>
+				<td><input ondblclick="recherche_station('aero_arrivee_trajet',false);return false;" onmouseout="UnTip();" onmouseover="Tip('Tapez ici un code OACI.', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" class="aero" value="" type="text" name="aero_arrivee_trajet" id="aero_arrivee_trajet" style="text-transform: uppercase;" size="4">
+					
+				</td>
+				<td align="left"><img onclick="recherche_station('aero_arrivee_trajet',false);return false;" src="ressources/images/jumelle.gif">				</td>
+			</tr>
+			
+			
+			<tr>
+			<td width="50">&nbsp;</td>
+				<td colspan="3" class="texte1">Domaine: 
+				<span class="texte8" style="font-size:8px" id="span_domaine_trajet">FRANCE</span>
+				<br> FL 20&lt;&nbsp;&gt;<span class="texte1" id="span_fly_level_trajet">550</span> </td>
+			</tr>
+			
+			
+			<tr>
+			<td width="50">&nbsp;</td>
+				<td colspan="3" class="texte1">
+				Cendres volcaniques: 
+				<span class="texte8" style="font-size:8px" id="span_vaavag_trajet"></span> 
+				</td>
+			</tr>
+			<tr>
+			<td width="50">&nbsp;</td>
+				<td colspan="3" class="texte1">
+				Cyclones tropicaux: 
+				<span class="texte8" style="font-size:8px" id="span_tcatcag_trajet"></span> <br>
+				(<a class="texte1" href="#" onclick="dossier_perso_change_domaine();return false;" id="modif_trajet">modifier</a>)
+				</td>
+			</tr>
+			
+			
+			
+			<tr>
+				<td width="50">&nbsp;</td>
+				<td colspan="1" class="texte1">
+				<div style="float: left;display:inline;">
+				<a href="#"><img src="./ressources/images/fr/valider-mon-trajet.gif" alt="" border="0" onclick="valider_trajet();return false;"></a></div>
+				</td>
+				<td>
+				<div style=" padding-right: 150px;display:inline;"><a href="javascript:UnTip();imprimer_trajet();"><img onmouseout="UnTip();" onmouseover="Tip('Visualiser au&lt;br&gt;format PDF, pour&lt;br&gt;imprimer le dossier de vol', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);" src="./ressources/images/picto/imprimante-trajet.jpg" alt=" " border="0"></a></div>
+				</td>
+			</tr>
+		</tbody></table>
+		</div>
+	
+<div class="cellContenuTabClassiquePetitBas"></div>
+</div>
+
+
+
+	
+<div id="messaero" class="messaero" align="center">
+
+<div id="map_info" class="messaerohead"><table align="center" height="100%"><tbody><tr><td valign="middle">Données du Dimanche 1 février 2026 à 20:45 UTC</td></tr></tbody></table></div>
+
+<div class="messaerodate">
+	<table width="100%" height="100%">
+		<tbody><tr>
+				<td class="opemet" valign="middle"><input type="radio" id="reseau_6" name="reseau" value="1800-1829" onclick="opemets_get('1800');return true;">18:00</td><td class="opemet" valign="middle"><input type="radio" id="reseau_5" name="reseau" value="1830-1859" onclick="opemets_get('1830');return true;">18:30</td><td class="opemet" valign="middle"><input type="radio" id="reseau_4" name="reseau" value="1900-1929" onclick="opemets_get('1900');return true;">19:00</td><td class="opemet" valign="middle"><input type="radio" id="reseau_3" name="reseau" value="1930-1959" onclick="opemets_get('1930');return true;">19:30</td><td class="opemet" valign="middle"><input type="radio" id="reseau_2" name="reseau" value="2000-2029" onclick="opemets_get('2000');return true;">20:00</td><td class="opemet" valign="middle"><input type="radio" id="reseau_1" name="reseau" value="2030-2059" onclick="opemets_get('2030');return true;">20:30</td><td class="opemet" valign="middle" onmouseout="UnTip();" onmouseover="Tip('Derniers METAR ou SPECI&lt;br&gt;&lt;span style=\'color:red;\' &gt;Attention à l\'heure du message.&lt;/span&gt;', BALLOON, true, ABOVE,true,OFFSETX,0,OFFSETY,2,CENTERMOUSE,true,CLICKCLOSE,true);"><input type="radio" checked="" id="reseau_last" name="reseau" value="" onclick="opemets_get('');return true;">Derniers</td>		</tr>
+	</tbody></table>
+</div>
+
+<div class="messaerobody">
+	<table width="100%">
+		<tbody><tr>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_oaci" name="param_opmet" onclick="dessine_opemets2();return true;" checked=""> Code OACI</td>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_vent" name="param_opmet" onclick="dessine_opemets2();return true;"> Vent</td>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_temps_present" name="param_opmet" onclick="dessine_opemets2();return true;"> Temps présent</td>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_visi" name="param_opmet" onclick="dessine_opemets2();return true;"> Visibilité</td>
+		</tr>
+		<tr>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_qnh" name="param_opmet" onclick="dessine_opemets2();return true;"> QNH</td>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_rafales" name="param_opmet" onclick="dessine_opemets2();return true;"> Rafales</td>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_tempe" name="param_opmet" onclick="dessine_opemets2();return true;"> Tempé T/TD(°C)</td>
+			<td class="opemet" valign="middle" align="left"><input type="radio" id="param_opmet_nuages" name="param_opmet" onclick="dessine_opemets2();return true;"> Nuages</td>
+		</tr>
+	</tbody></table>
+</div>
+
+<div id="map0" onmouseout="outer_station(null);">
+
+	<div id="waitbox_map" style="display: none;">
+	 	<table width="100%" height="100%" border="0">
+	 	<tbody><tr height="40px"><td height="40px">&nbsp;</td></tr>
+	 	<tr valign="top">
+	 		<td>
+	 		<center>
+		 		<img src="./ressources/images/fr/ajax-loader.gif" border="0">
+	 		</center>
+			</td>
+	 	</tr>
+	 	</tbody></table>
+ 	</div>
+ 	
+	<!--  <div id='map' class="messaerocarte"  onmousemove="return over_station(event);return true;" onclick="return over_station(event);return true;"> -->
+	<div id="map" class="messaerocarte" style="height: 359px; width: 450px;">
+		<img onclick="to_grande_carte(); " src="./ressources/images/fullscreen.png" style="padding-top:5px;left:423px;position:absolute;display:inline;z-index:1000;">	<div id="map_OpenLayers_ViewPort" class="olMapViewport" style="position: relative; overflow: hidden; width: 100%; height: 100%;"><div id="map_OpenLayers_Container" style="position: absolute; z-index: 749; left: 0px; top: 0px;"><div id="OpenLayers.Layer.LayerSphericalMercatorTile_39" style="position: absolute; width: 100%; height: 100%; z-index: 100;"><div style="overflow: hidden; position: absolute; left: -163px; top: 29px; width: 256px; height: 256px;"><img id="OpenLayersDiv81" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y89/x127.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 93px; top: 29px; width: 256px; height: 256px;"><img id="OpenLayersDiv83" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y89/x128.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 349px; top: 29px; width: 256px; height: 256px;"><img id="OpenLayersDiv85" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y89/x129.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 349px; top: -227px; width: 256px; height: 256px;"><img id="OpenLayersDiv87" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y88/x129.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 93px; top: -227px; width: 256px; height: 256px;"><img id="OpenLayersDiv89" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y88/x128.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -163px; top: -227px; width: 256px; height: 256px;"><img id="OpenLayersDiv91" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y88/x127.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -419px; top: -227px; width: 256px; height: 256px;"><img id="OpenLayersDiv93" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y88/x126.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -419px; top: 29px; width: 256px; height: 256px;"><img id="OpenLayersDiv95" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y89/x126.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -419px; top: 285px; width: 256px; height: 256px;"><img id="OpenLayersDiv97" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y90/x126.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -163px; top: 285px; width: 256px; height: 256px;"><img id="OpenLayersDiv99" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y90/x127.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 93px; top: 285px; width: 256px; height: 256px;"><img id="OpenLayersDiv101" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y90/x128.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 349px; top: 285px; width: 256px; height: 256px;"><img id="OpenLayersDiv103" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y90/x129.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 605px; top: 285px; width: 256px; height: 256px;"><img id="OpenLayersDiv105" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y90/x130.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 605px; top: 29px; width: 256px; height: 256px;"><img id="OpenLayersDiv107" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y89/x130.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 605px; top: -227px; width: 256px; height: 256px;"><img id="OpenLayersDiv109" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y88/x130.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 605px; top: -483px; width: 256px; height: 256px;"><img id="OpenLayersDiv111" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y87/x130.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 349px; top: -483px; width: 256px; height: 256px;"><img id="OpenLayersDiv113" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y87/x129.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 93px; top: -483px; width: 256px; height: 256px;"><img id="OpenLayersDiv115" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y87/x128.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -163px; top: -483px; width: 256px; height: 256px;"><img id="OpenLayersDiv117" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y87/x127.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -419px; top: -483px; width: 256px; height: 256px;"><img id="OpenLayersDiv119" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level8/y87/x126.png" style="width: 256px; height: 256px; position: relative;"></div></div><div id="OpenLayers.Layer.LayerDynMarkers_42" style="position: absolute; width: 100%; height: 100%; z-index: 330;"><svg id="OpenLayers.Layer.LayerDynMarkers_42_svgRoot"><g id="OpenLayers.Layer.LayerDynMarkers_42_root" transform="scale(1, -1)"></g></svg><div id="LFRM" style="position: absolute; width: 80px; height: 80px; left: 90px; top: 0px;"><table id="LFRM_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffc000;color:white;border:0px solid #ffc000;" class="opemet">LFRM</span><br><img id="LFRM_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffc000.gif"><br><span style="color:white;border:0px solid #ffc000;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOX" style="position: absolute; width: 80px; height: 80px; left: 431px; top: -118px;"><table id="LFOX_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFOX</span><br><img id="LFOX_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOV" style="position: absolute; width: 80px; height: 80px; left: -82px; top: -23px;"><table id="LFOV_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffff00;color:black;border:0px solid #ffff00;" class="opemet">LFOV</span><br><img id="LFOV_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffff00.gif"><br><span style="color:black;border:0px solid #ffff00;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOU" style="position: absolute; width: 80px; height: 80px; left: -106px; top: 233px;"><table id="LFOU_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFOU</span><br><img id="LFOU_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOZ" style="position: absolute; width: 80px; height: 80px; left: 447px; top: 14px;"><table id="LFOZ_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffc000;color:white;border:0px solid #ffc000;" class="opemet">LFOZ</span><br><img id="LFOZ_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffc000.gif"><br><span style="color:white;border:0px solid #ffc000;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFEG" style="position: absolute; width: 80px; height: 80px; left: 345px; top: 363px;"><table id="LFEG_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFEG</span><br><img id="LFEG_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFEH" style="position: absolute; width: 80px; height: 80px; left: 489px; top: 126px;"><table id="LFEH_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFEH</span><br><img id="LFEH_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFLD" style="position: absolute; width: 80px; height: 80px; left: 485px; top: 239px;"><table id="LFLD_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFLD</span><br><img id="LFLD_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFYR" style="position: absolute; width: 80px; height: 80px; left: 361px; top: 169px;"><table id="LFYR_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffff00;color:black;border:0px solid #ffff00;" class="opemet">LFYR</span><br><img id="LFYR_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffff00.gif"><br><span style="color:black;border:0px solid #ffff00;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFFV" style="position: absolute; width: 80px; height: 80px; left: 430px; top: 203px;"><table id="LFFV_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFFV</span><br><img id="LFFV_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFDW" style="position: absolute; width: 80px; height: 80px; left: 170px; top: 366px;"><table id="LFDW_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFDW</span><br><img id="LFDW_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFBI" style="position: absolute; width: 80px; height: 80px; left: 109px; top: 365px;"><table id="LFBI_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffff00;color:black;border:0px solid #ffff00;" class="opemet">LFBI</span><br><img id="LFBI_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffff00.gif"><br><span style="color:black;border:0px solid #ffff00;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFJR" style="position: absolute; width: 80px; height: 80px; left: -3px; top: 105px;"><table id="LFJR_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffff00;color:black;border:0px solid #ffff00;" class="opemet">LFJR</span><br><img id="LFJR_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffff00.gif"><br><span style="color:black;border:0px solid #ffff00;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFJT" style="position: absolute; width: 80px; height: 80px; left: 183px; top: 215px;"><table id="LFJT_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFJT</span><br><img id="LFJT_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOD" style="position: absolute; width: 80px; height: 80px; left: 33px; top: 187px;"><table id="LFOD_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFOD</span><br><img id="LFOD_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFFB" style="position: absolute; width: 80px; height: 80px; left: 495px; top: -110px;"><table id="LFFB_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFFB</span><br><img id="LFFB_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFLX" style="position: absolute; width: 80px; height: 80px; left: 367px; top: 293px;"><table id="LFLX_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffff00;color:black;border:0px solid #ffff00;" class="opemet">LFLX</span><br><img id="LFLX_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffff00.gif"><br><span style="color:black;border:0px solid #ffff00;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFFK" style="position: absolute; width: 80px; height: 80px; left: -91px; top: 404px;"><table id="LFFK_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFFK</span><br><img id="LFFK_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFEL" style="position: absolute; width: 80px; height: 80px; left: 251px; top: 356px;"><table id="LFEL_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFEL</span><br><img id="LFEL_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFEK" style="position: absolute; width: 80px; height: 80px; left: 425px; top: 285px;"><table id="LFEK_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFEK</span><br><img id="LFEK_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOQ" style="position: absolute; width: 80px; height: 80px; left: 273px; top: 73px;"><table id="LFOQ_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFOQ</span><br><img id="LFOQ_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOT" style="position: absolute; width: 80px; height: 80px; left: 185px; top: 139px;"><table id="LFOT_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffff00;color:black;border:0px solid #ffff00;" class="opemet">LFOT</span><br><img id="LFOT_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffff00.gif"><br><span style="color:black;border:0px solid #ffff00;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFCT" style="position: absolute; width: 80px; height: 80px; left: 26px; top: 265px;"><table id="LFCT_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFCT</span><br><img id="LFCT_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFOJ" style="position: absolute; width: 80px; height: 80px; left: 374px; top: -11px;"><table id="LFOJ_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:#ffc000;color:white;border:0px solid #ffc000;" class="opemet">LFOJ</span><br><img id="LFOJ_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_ffc000.gif"><br><span style="color:white;border:0px solid #ffc000;" class="opemet">&nbsp;</span></td></tr></tbody></table></div><div id="LFAL" style="position: absolute; width: 80px; height: 80px; left: 53px; top: 69px;"><table id="LFAL_center" border="0" width="100%" height="100%" cellspacing="0" cellpadding="0"><tbody><tr height="80px"><td valign="middle" align="center"><span style="background-color:grey;color:white;border:0px solid grey;" class="opemet">LFAL</span><br><img id="LFAL_center2" style="cursor:pointer;border:0px solid red;" src="./ressources/images/point_station_grey.gif"><br><span style="color:white;border:0px solid grey;" class="opemet">&nbsp;</span></td></tr></tbody></table></div></div></div><div id="OpenLayers.Control.PanZoomMercator_3" class="olControlPanZoomMercator" style="position: absolute; left: 4px; top: 4px; z-index: 1004;"><div id="OpenLayers_Control_PanZoom_panup" style="position: absolute; left: 13px; top: 4px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_panup_innerImage" src="/dmap/img/north-mini.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_PanZoom_panleft" style="position: absolute; left: 4px; top: 22px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_panleft_innerImage" src="/dmap/img/west-mini.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_PanZoom_panright" style="position: absolute; left: 22px; top: 22px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_panright_innerImage" src="/dmap/img/east-mini.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_PanZoom_pandown" style="position: absolute; left: 13px; top: 40px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_pandown_innerImage" src="/dmap/img/south-mini.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_PanZoom_zoomin" style="position: absolute; left: 13px; top: 63px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_zoomin_innerImage" src="/dmap/img/zoom-plus-mini.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_PanZoom_zoomworld" style="position: absolute; left: 13px; top: 81px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_zoomworld_innerImage" src="/dmap/img/zoom-world-mini.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_PanZoom_zoomout" style="position: absolute; left: 13px; top: 99px; width: 18px; height: 18px;"><img id="OpenLayers_Control_PanZoom_zoomout_innerImage" src="/dmap/img/zoom-minus-mini.png" style="position: relative; width: 18px; height: 18px;"></div></div><div id="OpenLayers.Control.ArgParser_4" class="olControlArgParser" style="position: absolute; z-index: 1004;"></div><div id="OpenLayers.Control.Attribution_5" class="olControlAttribution" style="position: absolute; z-index: 1004;"></div><div id="OpenLayers.Control.OverviewMap_46" class="olControlOverviewMapContainer" style="position: absolute; z-index: 1005;"><div class="olControlOverviewMapElement" style="display: none;"><div id="overviewMap51" style="width: 180px; height: 90px; position: relative; overflow: hidden;"><div class="olControlOverviewMapExtentRectangle" style="position: absolute; z-index: 1000; overflow: hidden; background-image: url(&quot;/dmap/img/blank.gif&quot;); top: 34px; left: 76px; height: 22px; width: 28px;"></div><div id="overviewMap51_OpenLayers_ViewPort" class="olMapViewport" style="position: relative; overflow: hidden; width: 100%; height: 100%;"><div id="overviewMap51_OpenLayers_Container" style="position: absolute; z-index: 749; left: 0px; top: 0px;"><div id="OpenLayers.Layer.LayerSphericalMercatorTile_48" style="position: absolute; width: 100%; height: 100%; z-index: 100;"><div style="overflow: hidden; position: absolute; left: -174px; top: -108px; width: 256px; height: 256px;"><img id="OpenLayersDiv136" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y5/x7.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -430px; top: -108px; width: 256px; height: 256px;"><img id="OpenLayersDiv138" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y5/x6.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 82px; top: -108px; width: 256px; height: 256px;"><img id="OpenLayersDiv140" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y5/x8.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 82px; top: -364px; width: 256px; height: 256px;"><img id="OpenLayersDiv142" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y4/x8.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -174px; top: -364px; width: 256px; height: 256px;"><img id="OpenLayersDiv144" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y4/x7.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -430px; top: -364px; width: 256px; height: 256px;"><img id="OpenLayersDiv146" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y4/x6.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -430px; top: 148px; width: 256px; height: 256px;"><img id="OpenLayersDiv151" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y6/x6.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: -174px; top: 148px; width: 256px; height: 256px;"><img id="OpenLayersDiv153" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y6/x7.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 82px; top: 148px; width: 256px; height: 256px;"><img id="OpenLayersDiv155" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y6/x8.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 338px; top: 148px; width: 256px; height: 256px;"><img id="OpenLayersDiv157" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y6/x9.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 338px; top: -108px; width: 256px; height: 256px;"><img id="OpenLayersDiv159" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y5/x9.png" style="width: 256px; height: 256px; position: relative;"></div><div style="overflow: hidden; position: absolute; left: 338px; top: -364px; width: 256px; height: 256px;"><img id="OpenLayersDiv161" class="olTileImage" src="/dmap-carto/aeroweb-vfr/level4/y4/x9.png" style="width: 256px; height: 256px; position: relative;"></div></div></div></div></div></div><div id="olControlOverviewMapMaximizeButton" class="olControlOverviewMapMaximizeButton" style="position: absolute; width: 18px; height: 18px;"><img id="olControlOverviewMapMaximizeButton_innerImage" src="/dmap/img/layer-switcher-maximize.png" style="position: relative; width: 18px; height: 18px;"></div><div id="OpenLayers_Control_minimizeDiv" class="olControlOverviewMapMinimizeButton" style="position: absolute; width: 18px; height: 18px; display: none;"><img id="OpenLayers_Control_minimizeDiv_innerImage" src="/dmap/img/layer-switcher-minimize.png" style="position: relative; width: 18px; height: 18px;"></div></div></div></div>
+
+</div>
+
+<div class="messaerofoot" style="text-align:center">
+	<img src="ressources/images/fr/legende_code_couleur_metar.png"> 
+	
+</div>
+
+</div>
+</div>
+			</div>
+
+
+		</div>
+
+
+
+		<script>
+			function show_carte_obs_meteo() {
+				showPopWin("show_carte_obs_meteo.php", 450, 110, null, true, "Avertissement");
+
+			}
+
+			function init_aero3() {
+
+			};
+
+			function newwindow(url, width, height) {
+				if (width == null) width = 1024;
+				if (height == null) height = 768;
+
+
+				window.open(url, "_blank", 'top=0,left=0,width=' + width + ',height=' + height + ',menubar=no,status=no,scrollbars=yes,resizable=yes');
+				return false;
+			}
+
+			function newwindow_gafor(url, width, height) {
+				if (width == null) width = 1024;
+				if (height == null) height = 768;
+
+
+				window.open(url, "gafor_view", 'top=0,left=0,width=' + width + ',height=' + height + ',menubar=no,status=no,scrollbars=yes,resizable=yes');
+				return false;
+			}
+
+			function newwindow_menubar(url, width, height) {
+				if (width == null) width = 1024;
+				if (height == null) height = 768;
+
+				window.open(url, '_blank');
+				return false;
+			}
+
+			function newfullwindow(url, name) {
+				var myPopup = window.open(url, name, 'top=0,left=0,fullscreen=yes,menubar=no,status=no,scrollbars=yes,resizable=yes');
+				$(myPopup).focus();
+			}
+
+			function connect_maille_fine(origin) {
+
+				var encode = "86bbe3937500520e761f95a7e6759cc6";
+
+				jQuery.ajax({
+					type: 'GET',
+					url: service_wms + 'wms/v2/auth/login/' + service_uid + '/' + escape("zalk9") + '/' + encode,
+					crossDomain: true,
+					complete: function(obj) {
+						newfullwindow("/Aeroweb_maille_fine/index.html?origin=" + origin, "Aeroweb_maille_fine");
+					}
+				});
+
+			}
+			setInterval(test_connection, (60 * 8000));
+
+			function toggleDisabled(el) {
+				try {
+					el.disabled = el.disabled ? false : true;
+				} catch (E) {}
+				if (el.childNodes && el.childNodes.length > 0) {
+					for (var x = 0; x < el.childNodes.length; x++) {
+						toggleDisabled(el.childNodes[x]);
+					}
+				}
+			}
+		</script>
+
+		<script>
+			function toggleDisabled(el) {
+				try {
+					el.disabled = el.disabled ? false : true;
+				} catch (E) {}
+				var collec = el.childElements();
+				if (collec && collec.length > 0) {
+					for (var x = 0; x < collec.length; x++) {
+						toggleDisabled(collec[x]);
+					}
+				}
+			}
+
+			function initmap(center, zoom) {
+				map = new OpenLayers.MapSphericalMercator(
+					"map", {
+						numZoomLevels: 10
+					}
+				);
+
+				var tile = new OpenLayers.Layer.LayerSphericalMercatorTile(
+					"Carte monde",
+					"/dmap-carto/aeroweb-vfr/", {}
+				);
+
+				var reseau = document.getElementsByName('reseau');
+				for (var i = 0; i < reseau.length; i++) {
+					if (reseau[i].checked == true) {
+						reseau = reseau[i].value;
+						break;
+					}
+				}
+
+				metars = new OpenLayers.Layer.LayerDynMarkers(
+					"Métars",
+					"./ajax/ajax_trajet_get_stations.php?", {
+						reseau: reseau,
+						type: "oaci"
+					}, {
+						featureClass: OpenLayers.Feature.MarkerOpmetTrajet
+					}
+				);
+
+				map.events.register('moveend', map, function() {
+					center_map = map.getCenter();
+				});
+
+				map.events.register('zoomend', map, function() {
+					zoom_map = map.getZoom();
+				});
+
+
+				map.addLayer(tile);
+
+
+				map.addLayer(tile);
+
+				map.addLayer(metars);
+				map.addControl(new OpenLayers.Control.OverviewSphericalMercatorMap());
+				map.setCenter(center, zoom);
+			}
+
+
+			OpenLayers.Util.onTileLoadStart = function() {
+				UnTip();
+
+				date_reseau_recu = "Pas de données trouvées pour ce domaine et ce réseau!"
+				document.getElementById('waitbox_globaldiv').style.display = 'block';
+				document.getElementById('waitbox_map').style.display = 'block';
+
+			}
+
+			OpenLayers.Util.onTileLoadEnd = function() {
+				document.getElementById('waitbox_map').style.display = 'none';
+				document.getElementById('waitbox_globaldiv').style.display = 'none';
+				var id_map_info = document.getElementById('map_info');
+				id_map_info.innerHTML = "<table align='center' height='100%'><tr><td valign='middle'>" + date_reseau_recu + "</td></tr></table>";
+			}
+
+
+			
+			function my_init(center, zoom) {
+
+
+
+				initmap(center, zoom);
+
+
+			}
+
+			function outer_station(evt) {
+
+
+				UnTip();
+			}
+
+			function outer_station2(evt) {
+
+
+				UnTip();
+			}
+
+			function over_station(ev, index) {
+
+
+				var x = ev.pageX;
+				var y = ev.pageY - 10;
+
+
+
+				if (!metars.markers) return;
+
+
+
+				for (var i = 0; i < metars.markers.length; i++) {
+
+
+					//continue;
+
+					//var reponse=Position.within($(metars.markers[i].station.oaci+"_center2"),x, y);
+					var reponse = (metars.markers[i].station.oaci == index);
+					if (reponse == true) {
+
+						var o = metars.markers[i].station.opemet;
+						var oaci = metars.markers[i].station.oaci;
+						var lonlat = metars.markers[i].station.lonlat;
+						var oaci_name = metars.markers[i].station.name;
+						var img_src = jQuery('#' + metars.markers[i].station.oaci + "_center2").attr('src');
+						//gris bleu orange rouge
+						var blue = "blue"; //"#009bdb";
+						var grey = "grey"; //"#919191";
+						var orange = "orange"; //"#00c800";//"#b2e80c";
+						var red = "red"; //#db5900"
+						var yellow = "yellow";
+						var green = "green"
+						var m_color = 'black';
+						if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='grey.gif']").get(0)) m_color = grey;
+						else if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='00b0f0.gif']").get(0)) m_color = '#00b0f0';
+						else if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='92d050.gif']").get(0)) m_color = '#92d050';
+						else if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='ffff00.gif']").get(0)) m_color = '#ffff00';
+						else if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='ffc000.gif']").get(0)) m_color = '#ffc000';
+						else if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='ff0000.gif']").get(0)) m_color = '#ff0000';
+						else if (jQuery('#' + metars.markers[i].station.oaci + "_center2[src$='9941d3.gif']").get(0)) m_color = '#9941d3';
+						else m_color = 'black';
+
+						var t = "<div   onmouseout='outer_station(null);' class= 'opemet' >";
+						var tt = "";
+
+
+						if (o) {
+							o = o.childNodes;
+							if (o) {
+								for (var i = 0; i < o.length; i++) {
+									var e = o[i];
+
+									if (e.tagName == "speci") {
+										var speci = e.firstChild.data;
+
+										if (speci != "") tt += "<span class='opemet' style='color:#db5900;'><b>SPECI:</b> " + speci + "</span><BR>";
+
+
+
+									}
+									if (e.tagName == "metar") {
+										//var metar=e.getAttribute('natif');
+										var metar = e.firstChild.data;
+										if (metar != "") tt += "<b>METAR:</b> " + metar + "<BR>";
+
+									}
+									if (e.tagName == "tafc") {
+										var taf_court = e.firstChild.data;
+										if (taf_court != "") tt += "<b>TAF COURT:</b> " + taf_court + "<BR>";
+									}
+									if (e.tagName == "tafl") {
+										var taf_long = e.firstChild.data;
+										if (taf_long != "") tt += "<b>TAF LONG:</b> " + taf_long + "<BR>";
+									}
+
+								}
+
+							}
+						}
+
+
+
+
+
+
+
+
+
+
+
+						if (tt == "") tt = "<b>" + oaci + ":Pas de données disponibles</b>";
+
+						t += tt + "</div>";
+
+
+						Tip(t, FIX, [x - 100, y - 5], BORDERWIDTH, 2, BGCOLOR, 'ivory', BORDERCOLOR, m_color, SHADOW, true, WIDTH, 200, TITLE, "<b>" + oaci_name.firstChild.data + "</b>", TITLEFONTCOLOR, 'black', TITLEBGCOLOR, m_color, DURATION, 30000);
+
+						return true;
+					}
+				}
+
+
+				UnTip();
+				return true;
+
+			}
+
+
+
+
+			function open_close_domaine(me, famille, parameters) {
+
+				var id_div = document.getElementById(famille);
+
+				if (id_div.style.display == 'none') {
+					id_div.style.display = 'block';
+					me.style.backgroundImage = 'url(ressources/images/moins.gif)';
+
+					var url = 'get_domaine_layers_echeances.php';
+
+					jQuery.ajax({
+						url: url,
+						type: 'GET',
+						data: parameters,
+
+						success: function(transport) {
+
+							id_div.innerHTML = transport;
+						},
+						error: function() {
+							td_id.innerHTML = "Erreur";
+						},
+						complete: function() {
+							setTimeout("cacheWaiting()", 100);
+						},
+						beforeSend: function() {
+							busyProcess();
+						}
+					});
+
+
+				} else {
+					id_div.style.display = 'none';
+					me.style.backgroundImage = 'url(ressources/images/plus.gif)';
+				}
+			}
+		</script>
+		<script type="text/javascript">
+			function valid_contact() {
+				//effaceSpan();
+
+				var url = "./ajax/contact_valid.php";
+
+
+
+				//var parametres = Form.serialize( 'form') ;
+				var parametres = jQuery('#form').serialize();
+
+
+
+
+				jQuery.ajax({
+					url: url,
+					type: 'POST',
+					data: parametres,
+					complete: function(transport) {
+						// affichereponse_aero(transport);
+
+						eval(transport.responseText);
+					}
+
+				});
+
+			}
+		</script>
+		<script type="text/javascript">
+			function mouse_in_tr(me) {
+
+				me.style.backgroundColor = '#DFF2FF';
+
+			}
+
+			function mouse_out_tr(me) {
+
+				me.style.backgroundColor = '';
+			}
+		</script>
+
+		<div id="wait"></div>
+
+		<div id="waitbox_globaldiv" style="display: none;"></div>
+
+		
+		<!--
+		<script type="text/javascript">
+			Xt_param = 's=39185&s2=58&di=&p=Accueil_Aeroweb';
+			if (window.xtparam != null) {
+				Xt_param += xtparam;
+			}
+			try {
+				Xt_r = top.document.referrer;
+			} catch (e) {
+				Xt_r = document.referrer;
+			}
+			Xt_h = new Date();
+			Xt_i = '<img width="1" height="1" alt="" src="https://logs.xiti.com/hit.xiti?' + Xt_param;
+			Xt_i += '&hl=' + Xt_h.getHours() + 'x' + Xt_h.getMinutes() + 'x' + Xt_h.getSeconds();
+			if (parseFloat(navigator.appVersion) >= 4) {
+				Xt_s = screen;
+				Xt_i += '&r=' + Xt_s.width + 'x' + Xt_s.height + 'x' + Xt_s.pixelDepth + 'x' + Xt_s.colorDepth;
+			}
+			document.write(Xt_i + '&ref=' + Xt_r.replace(/[<>"]/g, '').replace(/&/g, '$') + '" >');
+		</script>
+		<noscript>
+			<img width="1" height="1" alt="" src="https://logs.xiti.com/hit.xiti?s=39185&amp;s2=58&amp;p=&amp;di=">
+		</noscript>
+		-->
+	</div>
+
+
+
+
+
+<div class="ui-dialog ui-widget ui-widget-content ui-corner-all  ui-draggable ui-resizable" tabindex="-1" role="dialog" aria-labelledby="ui-dialog-title-ml" style="display: none; z-index: 1000; outline: 0px; position: absolute;"><div class="ui-dialog-titlebar ui-widget-header ui-corner-all ui-helper-clearfix" unselectable="on"><span class="ui-dialog-title" id="ui-dialog-title-ml" unselectable="on">Mentions légales</span><a href="#" class="ui-dialog-titlebar-close ui-corner-all" role="button" unselectable="on"><span class="ui-icon ui-icon-closethick" unselectable="on">close</span></a></div><div id="ml" class="ui-dialog-content ui-widget-content">
+			<img src="ressources/images/fr/mentions_legales.png">
+		</div><div class="ui-resizable-handle ui-resizable-n" unselectable="on"></div><div class="ui-resizable-handle ui-resizable-e" unselectable="on"></div><div class="ui-resizable-handle ui-resizable-s" unselectable="on"></div><div class="ui-resizable-handle ui-resizable-w" unselectable="on"></div><div class="ui-resizable-handle ui-resizable-se ui-icon ui-icon-gripsmall-diagonal-se ui-icon-grip-diagonal-se" unselectable="on" style="z-index: 1001;"></div><div class="ui-resizable-handle ui-resizable-sw" unselectable="on" style="z-index: 1002;"></div><div class="ui-resizable-handle ui-resizable-ne" unselectable="on" style="z-index: 1003;"></div><div class="ui-resizable-handle ui-resizable-nw" unselectable="on" style="z-index: 1004;"></div></div><div id="popupMask"></div><div id="popupContainer"><div id="popupInner"><div id="popupTitleBar"><div id="popupTitle"></div><div id="popupControls"><img src="./ressources/images/close.gif" onclick="hidePopWin(false);" id="popCloseBox"></div></div><iframe src="" style="width:100%;height:100%;background-color:transparent;" scrolling="auto" frameborder="0" allowtransparency="true" id="popupFrame" name="popupFrame" width="100%" height="100%"></iframe></div></div></body></html>
