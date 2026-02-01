@@ -1,40 +1,19 @@
-name: Mise a jour Carte Aero
-
-on:
-  schedule:
-    - cron: '0 * * * *'  # Se lance à la minute 00 de chaque heure
-  workflow_dispatch:      # Permet de lancer manuellement pour tester
-
-permissions:
-  contents: write         # Donne le droit d'enregistrer l'image
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Récupération du code
-        uses: actions/checkout@v3
-
-      - name: Installation Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Installation des outils (Selenium & Co)
-        run: |
-          pip install requests selenium webdriver-manager
-
-      - name: Lancement du Script
+- name: Lancement Script FRONTS (Original)
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      - name: Enregistrement de la nouvelle image
+      - name: Lancement Script TEMSI (Nouveau)
+        env:
+          METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
+          METEO_PASS: ${{ secrets.METEO_PASS }}
+        run: python temsi_france.py
+
+      - name: Enregistrement de TOUTES les images
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
-          git add carte_fronts.png
-          git commit -m "Nouvelle carte meteo" || echo "Pas de changement"
+          git add *.png
+          git commit -m "Mise a jour Cartes Meteo" || echo "Pas de changement"
           git push
