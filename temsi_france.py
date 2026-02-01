@@ -8,6 +8,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # --- CONFIGURATION ---
 IDENTIFIANT = os.environ["METEO_LOGIN"]
@@ -15,23 +16,29 @@ MOT_DE_PASSE = os.environ["METEO_PASS"]
 NOM_FICHIER = "temsi_france.png"
 URL_LOGIN = "https://aviation.meteo.fr/login.php"
 
+# Fonction de secours pour voir ce que voit le robot en cas de crash
 def debug_screenshot(driver, nom="erreur_page.png"):
-    driver.save_screenshot(nom)
-    print(f"[DEBUG] Capture d'écran sauvegardée : {nom}")
+    try:
+        driver.save_screenshot(nom)
+        print(f"[DEBUG] Capture d'écran de l'erreur sauvegardée : {nom}")
+        print(f"[DEBUG] URL au moment du crash : {driver.current_url}")
+    except:
+        print("[DEBUG] Impossible de prendre le screenshot.")
 
-def recuperer_temsi_via_navigation():
-    print("--- 1. Démarrage Selenium (Mode Explorateur) ---")
+def recuperer_temsi_navigation_complexe():
+    print("--- 1. Démarrage Selenium (Mode Navigation Menu Complexe) ---")
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # Taille d'écran HD pour être sûr que les menus s'affichent
-    chrome_options.add_argument("--window-size=1920,1080") 
+    # Ecran large pour bien afficher les menus latéraux
+    chrome_options.add_argument("--window-size=1920,1080")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    
+    wait = WebDriverWait(driver, 15) # On se donne 15s max pour trouver les éléments
+
     try:
-        # --- LOGIN ---
+        # --- PHASE 1 : LOGIN (Protocole standard fiable) ---
         print("2. Login...")
         driver.get(URL_LOGIN)
         driver.find_element(By.NAME, "login").send_keys(IDENTIFIANT)
@@ -41,71 +48,68 @@ def recuperer_temsi_via_navigation():
         except:
             driver.find_element(By.CSS_SELECTOR, "input[type='submit']").click()
         
-        # On attend d'être sur la page d'accueil (URL contient 'accueil')
+        # Verification qu'on est connecté (redirigé vers accueil)
         try:
-            WebDriverWait(driver, 10).until(EC.url_contains("accueil"))
-            print(f"   [OK] Connecté. Page actuelle : {driver.current_url}")
-        except:
-            print("   [ATTENTION] Pas de redirection 'accueil' détectée. On continue quand même...")
+            wait.until(EC.url_contains("accueil"))
+            print("   [OK] Connecté sur la page d'accueil.")
+        except TimeoutException:
+            print("[ERREUR] Login échoué ou redirection trop longue.")
+            raise
 
-        # --- RECHERCHE DU LIEN TEMSI ---
-        print("3. Recherche du lien 'TEMSI' dans le menu...")
-        
-        # On cherche tous les liens qui contiennent "TEMSI" dans leur texte ou leur URL
-        liens = driver.find_elements(By.TAG_NAME, "a")
-        lien_cible = None
-        
-        for lien in liens:
-            txt = lien.text.lower()
-            href = lien.get_attribute("href")
-            if href and ("temsi" in href.lower() or "temsi" in txt):
-                # On privilégie la France si possible
-                if "france" in txt or "france" in href.lower():
-                    print(f"   > LIEN GAGNANT TROUVÉ : '{lien.text}' -> {href}")
-                    lien_cible = href
-                    break
-                # Sinon on garde le lien TEMSI générique en secours
-                elif not lien_cible:
-                    print(f"   > Lien potentiel : '{lien.text}' -> {href}")
-                    lien_cible = href
+        # --- PHASE 2 : OUVERTURE DU MENU LATERAL ---
+        print("3. Recherche du menu déroulant 'TEMSI-WINTEM'...")
+        try:
+            # On cherche un élément cliquable qui contient le texte exact donné par l'utilisateur
+            # XPath cherche n'importe quel élément (*) contenant le texte
+            menu_opener = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'TEMSI-WINTEM')]")))
+            print("   Menu trouvé. Clic...")
+            menu_opener.click()
+            time.sleep(3) # On laisse le temps au menu de se dérouler
+        except TimeoutException:
+             print("[ERREUR] Impossible de trouver le bouton 'TEMSI-WINTEM' dans le menu de gauche.")
+             raise
 
-        if not lien_cible:
-            print("[FATAL] Impossible de trouver un lien 'TEMSI' sur la page d'accueil.")
-            # On liste les liens pour comprendre
-            print("   Liens vus sur la page : " + ", ".join([l.text for l in liens[:10]]) + "...")
-            debug_screenshot(driver)
-            exit(1)
+        # --- PHASE 3 : CLIC SUR LE LIEN 'FRANCE' ---
+        print("4. Recherche du lien 'FRANCE' dans le menu déroulé...")
+        try:
+            # On cherche un lien (tag 'a') qui est VISIBLE et contient le texte 'FRANCE'
+            lien_france = wait.until(EC.visibility_of_element_located((By.XPATH, "//a[contains(text(), 'FRANCE')]")))
+            print(f"   Lien France trouvé (URL cible: {lien_france.get_attribute('href')}). Clic...")
+            lien_france.click()
+            # On attend que la nouvelle page se charge
+            time.sleep(5) 
+            print(f"   [OK] Nouvelle page atteinte : {driver.current_url}")
+        except TimeoutException:
+             print("[ERREUR] Le lien 'FRANCE' n'est pas apparu après avoir ouvert le menu.")
+             raise
 
-        # --- NAVIGATION VERS LA PAGE CIBLE ---
-        print(f"4. Navigation vers : {lien_cible}")
-        driver.get(lien_cible)
-        time.sleep(3)
-
-        # --- RECUPERATION IMAGE (LA PLUS GRANDE) ---
-        print("5. Recherche de l'image carte...")
+        # --- PHASE 4 : RECUPERATION DE LA PLUS GRANDE IMAGE (Méthode robuste) ---
+        print("5. Analyse de la page pour trouver la carte (la plus grande image)...")
         images = driver.find_elements(By.TAG_NAME, "img")
         url_finale = None
         surface_max = 0
         
         for img in images:
             try:
-                w = img.size['width']
-                h = img.size['height']
-                src = img.get_attribute("src")
-                if w * h > surface_max and src and "affiche_image" in src:
-                    surface_max = w * h
-                    url_finale = src
+                # On ne prend que les images affichées (width > 0)
+                if img.size['width'] > 50 and img.size['height'] > 50:
+                    surface = img.size['width'] * img.size['height']
+                    src = img.get_attribute("src")
+                    # Aeroweb utilise souvent ce script pour servir les cartes
+                    if surface > surface_max and src and "affiche_image" in src:
+                        surface_max = surface
+                        url_finale = src
+                        print(f"   > Candidat (Surface: {surface}): {src[-40:]}")
             except:
-                pass
+                continue
         
         if not url_finale:
-            print("[FATAL] Pas d'image de carte trouvée sur cette page.")
-            debug_screenshot(driver)
-            exit(1)
-            
-        print(f"   [VICTOIRE] Image identifiée : {url_finale}")
+            print("[ERREUR FATALE] Aucune grande image de type 'carte' trouvée sur cette page.")
+            raise
 
-        # --- TELECHARGEMENT ---
+        print(f"   [VICTOIRE] Image finale identifiée : {url_finale}")
+
+        # --- PHASE 5 : TELECHARGEMENT AVEC SESSION ---
         session = requests.Session()
         session.headers.update({'User-Agent': 'Mozilla/5.0'})
         selenium_cookies = driver.get_cookies()
@@ -113,20 +117,21 @@ def recuperer_temsi_via_navigation():
             session.cookies.set(cookie['name'], cookie['value'])
             
         resp = session.get(url_finale)
-        if resp.status_code == 200:
+        if resp.status_code == 200 and len(resp.content) > 1000:
             with open(NOM_FICHIER, 'wb') as f:
                 f.write(resp.content)
-            print(f"[SUCCES] Fichier sauvegardé ({len(resp.content)} octets).")
+            print(f"[SUCCES TOTAL] TEMSI France sauvegardée ({len(resp.content)} octets).")
         else:
-            print("[ECHEC] Erreur download.")
-            exit(1)
+            print(f"[ECHEC DOWNLOAD] Status: {resp.status_code}, Taille: {len(resp.content)}")
+            raise Exception("Echec téléchargement final")
 
     except Exception as e:
-        print(f"[ERREUR CRITIQUE] : {e}")
+        print(f"\n[ARRET DU SCRIPT SUR ERREUR] : {e}")
+        # C'est ici qu'on prend la photo si ça plante
         debug_screenshot(driver)
-        exit(1)
+        exit(1) # On force le rouge pour le workflow
     finally:
         driver.quit()
 
 if __name__ == "__main__":
-    recuperer_temsi_via_navigation()
+    recuperer_temsi_navigation_complexe()
