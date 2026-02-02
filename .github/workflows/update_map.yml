@@ -2,9 +2,8 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    # La virgule permet de définir plusieurs minutes : 00 et 05
-    - cron: '0,5 * * * *'
-  workflow_dispatch:      # Permet le lancement manuel
+    - cron: '0,5 * * * *'  # H+00 et H+05
+  workflow_dispatch:      # Manuel
 
 permissions:
   contents: write
@@ -26,25 +25,32 @@ jobs:
         run: |
           pip install requests selenium webdriver-manager
 
-      # 1. SCRIPT FRONTS (WAFC)
-      - name: Lancement Script FRONTS
+      # 1. CARTE FRONTS
+      - name: Script FRONTS (WAFC)
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      # 2. SCRIPT TEMSI (France)
-      - name: Lancement Script TEMSI
+      # 2. CARTE TEMSI FRANCE
+      - name: Script TEMSI FRANCE
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
 
-      # 3. SAUVEGARDE
+      # 3. CARTE WINTEM FRANCE (20/100)
+      - name: Script WINTEM FRANCE
+        env:
+          METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
+          METEO_PASS: ${{ secrets.METEO_PASS }}
+        run: python wintem_france.py
+
+      # 4. SAUVEGARDE
       - name: Git Push
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
           git add *.png
-          git commit -m "Mise a jour Cartes (H+00 / H+05)" || echo "Rien a changer"
+          git commit -m "Update Cartes (H+00 / H+05)" || echo "Rien a changer"
           git push
