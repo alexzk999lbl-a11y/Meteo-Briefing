@@ -2,8 +2,8 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Toutes les heures à H+00
-  workflow_dispatch:      # Permet le lancement manuel via bouton
+    - cron: '0 * * * *'  # Se lance toutes les heures à xx:00
+  workflow_dispatch:      # Permet le lancement manuel (Bouton Run)
 
 permissions:
   contents: write
@@ -25,29 +25,25 @@ jobs:
         run: |
           pip install requests selenium webdriver-manager
 
-      # ETAPE 1 : SCRIPT FRONTS (Celui qui marche déjà)
+      # ETAPE 1 : Script Carte Fronts (WAFC)
       - name: Lancement Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
-        continue-on-error: true  # Continue même si erreur pour tenter la suite
 
-      # ETAPE 2 : SCRIPT TEMSI (Le nouveau "Force Brute")
+      # ETAPE 2 : Script Carte TEMSI (France)
       - name: Lancement Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
-        continue-on-error: true  # Continue pour sauvegarder les preuves d'erreur
 
-      # ETAPE 3 : SAUVEGARDE TOTALE (Images valides OU Preuves d'erreur)
-      - name: Enregistrement Git
-        if: always()  # S'exécute quoi qu'il arrive
+      # ETAPE 3 : Sauvegarde uniquement des images PNG
+      - name: Enregistrement des images
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
-          # La commande ci-dessous ajoute TOUT (images png, fichiers html, logs...)
-          git add .
-          git commit -m "Mise a jour ou Debug" || echo "Pas de changement detecte"
+          git add *.png
+          git commit -m "Mise a jour Cartes Meteo" || echo "Pas de changement"
           git push
