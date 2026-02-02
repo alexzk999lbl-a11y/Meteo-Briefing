@@ -2,8 +2,9 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Toutes les heures
-  workflow_dispatch:      # Manuel
+    # La virgule permet de définir plusieurs minutes : 00 et 05
+    - cron: '0,5 * * * *'
+  workflow_dispatch:      # Permet le lancement manuel
 
 permissions:
   contents: write
@@ -25,14 +26,14 @@ jobs:
         run: |
           pip install requests selenium webdriver-manager
 
-      # 1. SCRIPT FRONTS (Votre script fonctionnel WAFC)
+      # 1. SCRIPT FRONTS (WAFC)
       - name: Lancement Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      # 2. SCRIPT TEMSI (Le nouveau script corrigé)
+      # 2. SCRIPT TEMSI (France)
       - name: Lancement Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
@@ -45,5 +46,5 @@ jobs:
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
           git add *.png
-          git commit -m "Mise a jour Cartes" || echo "Rien a changer"
+          git commit -m "Mise a jour Cartes (H+00 / H+05)" || echo "Rien a changer"
           git push
