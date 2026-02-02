@@ -16,11 +16,13 @@ NOM_FICHIER = "temsi_france.png"
 URL_LOGIN = "https://aviation.meteo.fr/login.php"
 
 def force_click(driver, element):
-    """Force le clic via JavaScript (contourne les bugs d'affichage)"""
+    """Force le clic JS pour contourner les blocages d'interface"""
     driver.execute_script("arguments[0].click();", element)
 
-def recuperer_temsi_chirurgical():
-    print("--- 1. Démarrage Selenium (Séquence Complète avec Validation) ---")
+def recuperer_temsi_direct():
+    print("--- SEQUENCE PILOTE : TEMSI FRANCE ---")
+    
+    # 1. SETUP NAVIGATEUR
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -28,74 +30,49 @@ def recuperer_temsi_chirurgical():
     chrome_options.add_argument("--window-size=1920,1080")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 15)
 
     try:
-        # --- PHASE 1 : LOGIN ---
-        print("2. Login...")
+        # 2. LOGIN
+        print("> Connexion...")
         driver.get(URL_LOGIN)
         driver.find_element(By.NAME, "login").send_keys(IDENTIFIANT)
         driver.find_element(By.NAME, "password").send_keys(MOT_DE_PASSE)
         try:
             driver.find_element(By.XPATH, "//input[@type='image'] | //input[@type='submit']").click()
         except:
-            pass 
+            pass
         
-        # Attente redirection accueil
+        # Vérification chargement accueil
         try:
             wait.until(EC.url_contains("accueil"))
         except:
-            pass
+            pass # On continue, parfois l'URL ne change pas visuellement
 
-        # --- PHASE 2 : OUVERTURE MENU ---
-        print("3. Ouverture du menu 'TEMSI-WINTEM'...")
-        try:
-            menu = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'TEMSI-WINTEM')]")))
-            force_click(driver, menu)
-            time.sleep(2) 
-        except Exception as e:
-            print(f"[ERREUR] Menu introuvable : {e}")
-            raise
-
-        # --- PHASE 3 : SELECTION 'FRANCE' ---
-        print("4. Sélection de la zone 'FRANCE'...")
-        try:
-            # On cherche l'élément visible qui contient FRANCE
-            xpath_france = "//*[contains(translate(text(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 'FRANCE')]"
-            france_elements = driver.find_elements(By.XPATH, xpath_france)
-            
-            clicked = False
-            for el in france_elements:
-                if el.is_displayed() and ("a" == el.tag_name or "span" == el.tag_name):
-                    print(f"   > Clic sur : {el.text}")
-                    force_click(driver, el)
-                    clicked = True
-                    break
-            
-            if not clicked:
-                print("[ALERTE] Pas de lien 'France' évident, on essaie de continuer si la zone est déjà par défaut...")
-            
-            time.sleep(2) # Pause technique
-            
-        except Exception as e:
-            print(f"[ERREUR] Sélection France : {e}")
-
-        # --- PHASE 4 : CLIC SUR VALIDER (LE BOUTON MAGIQUE) ---
-        print("5. Clic sur le bouton VALIDER...")
-        try:
-            # On cherche l'image exactement comme vous me l'avez donnée (valider.gif)
-            btn_valider = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "img[src*='valider.gif']")))
-            force_click(driver, btn_valider)
-            print("   [OK] Bouton Valider cliqué ! Génération de la carte...")
-            time.sleep(5) # On attend que la carte charge
-        except Exception as e:
-            print(f"[ERREUR FATALE] Bouton Valider introuvable : {e}")
-            # On sauvegarde le HTML pour voir pourquoi il n'est pas là
-            with open("debug_valider.html", "w") as f: f.write(driver.page_source)
-            raise
-
-        # --- PHASE 5 : RECUPERATION DE L'IMAGE ---
-        print("6. Extraction de la carte générée...")
+        # 3. SEQUENCE MENU
+        print("> Navigation Menu...")
+        
+        # A. Clic Menu Principal "TEMSI-WINTEM"
+        menu_principal = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'TEMSI-WINTEM')]")))
+        force_click(driver, menu_principal)
+        time.sleep(1) # Bref délai pour l'ouverture
+        
+        # B. Clic Sous-Menu "FRANCE"
+        # On cherche l'élément visible qui contient le texte exact FRANCE
+        sous_menu = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(),'FRANCE')]")))
+        force_click(driver, sous_menu)
+        time.sleep(1) # Bref délai pour la prise en compte des paramètres
+        
+        # 4. VALIDATION
+        print("> Validation...")
+        # Clic sur l'image 'valider.gif' identifiée via l'inspection
+        bouton_valider = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "img[src*='valider.gif']")))
+        force_click(driver, bouton_valider)
+        
+        # 5. RECUPERATION CARTE
+        print("> Récupération image...")
+        time.sleep(4) # Attente génération carte
+        
         images = driver.find_elements(By.TAG_NAME, "img")
         url_finale = None
         surface_max = 0
@@ -103,41 +80,40 @@ def recuperer_temsi_chirurgical():
         for img in images:
             try:
                 src = img.get_attribute("src")
-                w = img.size['width']
-                h = img.size['height']
-                
-                # La carte est toujours une image dynamique (affiche_image.php) et grande
-                if w * h > 50000 and src and "affiche_image" in src:
-                    print(f"   > Carte trouvée : {w}x{h} px")
+                if src and "affiche_image" in src:
+                    # On prend la plus grande image "affiche_image"
+                    w = img.size['width']
+                    h = img.size['height']
                     if w * h > surface_max:
                         surface_max = w * h
                         url_finale = src
-            except: pass
+            except:
+                continue
 
         if url_finale:
-            print(f"   [VICTOIRE] URL Finale : {url_finale}")
+            # Téléchargement avec session (cookies)
             session = requests.Session()
             session.headers.update({'User-Agent': 'Mozilla/5.0'})
-            for c in driver.get_cookies(): session.cookies.set(c['name'], c['value'])
+            for c in driver.get_cookies():
+                session.cookies.set(c['name'], c['value'])
             
             resp = session.get(url_finale)
             if resp.status_code == 200:
                 with open(NOM_FICHIER, 'wb') as f:
                     f.write(resp.content)
-                print("[SUCCES TOTAL] Image enregistrée sur le disque.")
+                print(f"[SUCCES] Carte enregistrée : {NOM_FICHIER}")
             else:
-                print("[ECHEC DOWNLOAD]")
+                print("[ECHEC] Erreur lors du téléchargement du fichier.")
                 exit(1)
         else:
-            print("[ERREUR] Malgré le clic sur Valider, aucune carte n'est apparue.")
-            driver.save_screenshot("echec_carte.png")
+            print("[ECHEC] La carte n'est pas apparue après validation.")
             exit(1)
 
     except Exception as e:
-        print(f"[CRASH SYSTEME] : {e}")
+        print(f"[ERREUR] {e}")
         exit(1)
     finally:
         driver.quit()
 
 if __name__ == "__main__":
-    recuperer_temsi_chirurgical()
+    recuperer_temsi_direct()
