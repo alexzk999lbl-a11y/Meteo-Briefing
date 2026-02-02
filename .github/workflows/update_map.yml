@@ -2,8 +2,8 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Se lance toutes les heures à xx:00
-  workflow_dispatch:      # Permet le lancement manuel (Bouton Run)
+    - cron: '0 * * * *'  # Toutes les heures
+  workflow_dispatch:      # Manuel
 
 permissions:
   contents: write
@@ -21,29 +21,29 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Installation des outils
+      - name: Installation Outils
         run: |
           pip install requests selenium webdriver-manager
 
-      # ETAPE 1 : Script Carte Fronts (WAFC)
+      # 1. SCRIPT FRONTS (Votre script fonctionnel WAFC)
       - name: Lancement Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      # ETAPE 2 : Script Carte TEMSI (France)
+      # 2. SCRIPT TEMSI (Le nouveau script corrigé)
       - name: Lancement Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
 
-      # ETAPE 3 : Sauvegarde uniquement des images PNG
-      - name: Enregistrement des images
+      # 3. SAUVEGARDE
+      - name: Git Push
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
           git add *.png
-          git commit -m "Mise a jour Cartes Meteo" || echo "Pas de changement"
+          git commit -m "Mise a jour Cartes" || echo "Rien a changer"
           git push
