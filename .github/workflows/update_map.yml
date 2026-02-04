@@ -3,14 +3,15 @@ name: Mise a jour Carte Aero
 on:
   schedule:
     - cron: '0,5 * * * *'  # H+00 et H+05
-  workflow_dispatch:      # Manuel
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # On force Ubuntu 22.04 pour éviter la saturation des serveurs "latest"
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Récupération du code
@@ -23,34 +24,42 @@ jobs:
 
       - name: Installation Outils
         run: |
-          pip install requests selenium webdriver-manager
+          # Pillow sert à générer l'image du texte SIGMET
+          pip install requests selenium webdriver-manager Pillow
 
-      # 1. CARTE FRONTS
-      - name: Script FRONTS (WAFC)
+      # 1. FRONTS
+      - name: Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      # 2. CARTE TEMSI FRANCE
-      - name: Script TEMSI FRANCE
+      # 2. TEMSI
+      - name: Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
 
-      # 3. CARTE WINTEM FRANCE (20/100)
-      - name: Script WINTEM FRANCE
+      # 3. WINTEM
+      - name: Script WINTEM
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python wintem_france.py
 
-      # 4. SAUVEGARDE
+      # 4. SIGMET (Texte -> Image)
+      - name: Script SIGMET
+        env:
+          METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
+          METEO_PASS: ${{ secrets.METEO_PASS }}
+        run: python sigmet_france.py
+
+      # 5. SAUVEGARDE
       - name: Git Push
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
           git add *.png
-          git commit -m "Update Cartes (H+00 / H+05)" || echo "Rien a changer"
+          git commit -m "Update Cartes + SIGMET" || echo "Rien a changer"
           git push
