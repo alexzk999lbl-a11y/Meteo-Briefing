@@ -14,52 +14,51 @@ MOT_DE_PASSE = os.environ["METEO_PASS"]
 NOM_FICHIER = "sigmet_france.png"
 URL_LOGIN = "https://aviation.meteo.fr/login.php"
 
-def generer_image(texte, is_alerte):
+def generer_image(texte, type_message):
     """
-    Génère l'image avec le texte EXACT trouvé sur le site.
+    type_message : 'ALERTE' (Rouge) ou 'RAS' (Vert)
     """
-    # Nettoyage
+    # Nettoyage du texte (remplace les <br> par des espaces si Selenium ne l'a pas fait)
     texte_propre = " ".join(texte.split())
     
-    if is_alerte:
-        # ROUGE (Danger/SIGMET Actif)
+    if type_message == 'ALERTE':
         bg_color = (255, 200, 200) # Rouge clair
         text_color = (150, 0, 0)   # Rouge foncé
-        titre = "⚠️ ALERTE SIGMET :"
+        titre = "⚠️ ALERTE SIGMET (LFOT/LFFF) :"
+        hauteur = 300 # Plus haut car le SIGMET peut être long
     else:
-        # VERT (RAS)
         bg_color = (200, 255, 200) # Vert clair
         text_color = (0, 100, 0)   # Vert foncé
         titre = "SITUATION NORMALE :"
+        hauteur = 200
 
-    # Dimensions
-    W, H = 800, 250
-    img = Image.new('RGB', (W, H), color=bg_color)
+    # Création Image
+    img = Image.new('RGB', (800, hauteur), color=bg_color)
     draw = ImageDraw.Draw(img)
     
     # Police
     try:
-        font_main = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
-        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
+        font_titre = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
+        font_txt = ImageFont.truetype("DejaVuSans-Bold.ttf", 16)
     except:
-        font_main = ImageFont.load_default()
-        font_title = ImageFont.load_default()
+        font_titre = ImageFont.load_default()
+        font_txt = ImageFont.load_default()
 
     # Titre
-    draw.text((20, 20), titre, font=font_title, fill=text_color)
+    draw.text((20, 20), titre, font=font_titre, fill=text_color)
     
-    # Le texte exact du site
-    lignes = textwrap.wrap(texte_propre, width=65)
+    # Corps du message
+    lignes = textwrap.wrap(texte_propre, width=75)
     y = 60
     for ligne in lignes:
-        draw.text((20, y), ligne, font=font_main, fill=text_color)
-        y += 25
+        draw.text((20, y), ligne, font=font_txt, fill=text_color)
+        y += 20
 
     img.save(NOM_FICHIER)
-    print(f"   [IMAGE] Mode {'ALERTE' if is_alerte else 'RAS'} - Texte : {texte_propre[:30]}...")
+    print(f"   [IMAGE] Générée en mode {type_message}")
 
-def recuperer_sigmet_strict():
-    print("--- SCAN SIGMET (Logique Stricte) ---")
+def recuperer_sigmet_final():
+    print("--- SCAN SIGMET (Basé sur HTML LFBB/LFFF) ---")
     
     options = Options()
     options.add_argument("--headless")
@@ -78,37 +77,49 @@ def recuperer_sigmet_strict():
         
         time.sleep(5)
 
-        # 2. LECTURE
-        print("> Recherche du message...")
+        # 2. ANALYSE PRIORITAIRE : Y a-t-il une ALERTE ROUGE (texte1) ?
+        # Ton exemple : <span class="texte1" style="color:red;">LFBB SIGMET...</span>
         try:
-            # On cherche tout élément contenant "SIGMET" qui N'EST PAS un lien (pour éviter le menu)
-            xpath = "//*[contains(text(), 'SIGMET')][not(self::a)]"
-            elements = driver.find_elements(By.XPATH, xpath)
-            
-            texte_trouve = None
-            
+            # On cherche spécifiquement la classe d'alerte rouge
+            alerte_rouge = driver.find_element(By.XPATH, "//span[@class='texte1' and contains(@style, 'red')]")
+            if alerte_rouge.is_displayed():
+                texte = alerte_rouge.text
+                print(f"   [DANGER] SIGMET Détecté : {texte[:30]}...")
+                generer_image(texte, 'ALERTE')
+                return # On a trouvé le pire, on s'arrête là.
+        except:
+            pass # Pas d'alerte rouge explicite trouvée, on continue.
+
+        # 3. ANALYSE SECONDAIRE : Y a-t-il le message "Pas de SIGMET" ?
+        # Ton exemple précédent : <span class="texte3">Pas de SIGMET...</span>
+        try:
+            elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'SIGMET')]")
+            trouve = False
             for elem in elements:
-                # On filtre les éléments invisibles ou trop courts
-                if elem.is_displayed() and len(elem.text) > 5:
-                    # On ignore le titre du menu s'il est capté par erreur
-                    if "Type de cartes" in elem.text: continue
-                    
-                    texte_trouve = elem.text
-                    break # On prend le premier trouvé
-            
-            if texte_trouve:
-                print(f"   [LU] : {texte_trouve}")
+                # On ignore le menu
+                if "Type de cartes" in elem.text: continue
+                if elem.tag_name == 'a': continue
                 
-                # --- REGLE STRICTE PILOTE ---
-                # Si "Pas de" est présent -> VERT
-                # Sinon -> ROUGE
-                if "Pas de" in texte_trouve:
-                    generer_image(texte_trouve, is_alerte=False)
-                else:
-                    generer_image(texte_trouve, is_alerte=True)
-            else:
-                print("[INFO] Aucun message texte trouvé. Génération image erreur.")
-                generer_image("Information SIGMET illisible (Structure page changée)", True)
+                txt = elem.text
+                if "Pas de" in txt:
+                    print(f"   [RAS] Message trouvé : {txt}")
+                    generer_image(txt, 'RAS')
+                    trouve = True
+                    break
+            
+            if not trouve:
+                # Si on n'a ni rouge, ni vert "Pas de", mais qu'on a trouvé un texte avec SIGMET...
+                # Par sécurité, on considère que c'est une info importante.
+                print("   [INFO] Texte ambigu trouvé, affichage par sécurité.")
+                # On essaie de récupérer le premier texte SIGMET visible qui n'est pas le menu
+                for elem in elements:
+                    if "Type de cartes" not in elem.text and elem.tag_name != 'a' and len(elem.text) > 10:
+                        generer_image(elem.text, 'ALERTE') # Dans le doute, Rouge
+                        trouve = True
+                        break
+                
+                if not trouve:
+                    generer_image("Aucune info SIGMET trouvée sur la page d'accueil", 'ALERTE')
 
         except Exception as e:
             print(f"[ERREUR] {e}")
@@ -121,4 +132,4 @@ def recuperer_sigmet_strict():
         driver.quit()
 
 if __name__ == "__main__":
-    recuperer_sigmet_strict()
+    recuperer_sigmet_final()
