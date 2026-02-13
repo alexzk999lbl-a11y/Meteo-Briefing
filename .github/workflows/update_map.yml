@@ -2,7 +2,7 @@ name: Mise a jour Carte Aero
 
 on:
   schedule:
-    - cron: '0,5 * * * *'  # H+00 et H+05
+    - cron: '0,5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   build:
-    # On force Ubuntu 22.04 pour éviter la saturation des serveurs "latest"
     runs-on: ubuntu-22.04
 
     steps:
@@ -24,7 +23,6 @@ jobs:
 
       - name: Installation Outils
         run: |
-          # Pillow sert à générer l'image du texte SIGMET
           pip install requests selenium webdriver-manager Pillow
 
       # 1. FRONTS
@@ -48,7 +46,7 @@ jobs:
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python wintem_france.py
 
-      # 4. SIGMET (Texte -> Image)
+      # 4. SIGMET
       - name: Script SIGMET
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
