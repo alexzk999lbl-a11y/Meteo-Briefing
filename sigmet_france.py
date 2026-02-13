@@ -14,71 +14,61 @@ MOT_DE_PASSE = os.environ["METEO_PASS"]
 NOM_FICHIER = "sigmet_france.png"
 URL_LOGIN = "https://aviation.meteo.fr/login.php"
 
-def generer_image_brute(texte_brut):
+def generer_image(texte, is_alerte):
     """
-    Crée une image avec le texte EXACT trouvé sur le site.
-    Gestion intelligente de la couleur de fond.
+    Génère l'image avec le texte EXACT trouvé sur le site.
     """
-    # Nettoyage du texte (on vire les sauts de ligne multiples pour avoir une phrase propre)
-    texte_propre = " ".join(texte_brut.split())
+    # Nettoyage
+    texte_propre = " ".join(texte.split())
     
-    # LOGIQUE DE COULEUR STRICTE
-    # 1. Cas VERT : On est sûr qu'il n'y a rien
-    if "Pas de SIGMET" in texte_propre:
-        bg_color = (200, 255, 200) # Vert 
-        text_color = (0, 100, 0)
-        status = "RAS"
-    # 2. Cas ROUGE : Il y a un SIGMET actif (et pas la phrase 'Pas de...')
-    elif "SIGMET" in texte_propre and "Pas de" not in texte_propre:
-        bg_color = (255, 200, 200) # Rouge
-        text_color = (150, 0, 0)
-        status = "ALERTE"
-    # 3. Cas ORANGE : Texte inconnu ou informatif (ex: Maintenance, Gamet seul...)
+    if is_alerte:
+        # ROUGE (Danger/SIGMET Actif)
+        bg_color = (255, 200, 200) # Rouge clair
+        text_color = (150, 0, 0)   # Rouge foncé
+        titre = "⚠️ ALERTE SIGMET :"
     else:
-        bg_color = (255, 220, 150) # Orange
-        text_color = (100, 50, 0)
-        status = "INFO"
+        # VERT (RAS)
+        bg_color = (200, 255, 200) # Vert clair
+        text_color = (0, 100, 0)   # Vert foncé
+        titre = "SITUATION NORMALE :"
 
-    # Création Image
-    W, H = 800, 200
+    # Dimensions
+    W, H = 800, 250
     img = Image.new('RGB', (W, H), color=bg_color)
     draw = ImageDraw.Draw(img)
     
     # Police
     try:
-        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
+        font_main = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
+        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
     except:
-        font = ImageFont.load_default()
+        font_main = ImageFont.load_default()
+        font_title = ImageFont.load_default()
 
-    # Affichage du texte brut (Wrap pour que ça rentre)
-    lignes = textwrap.wrap(texte_propre, width=70)
+    # Titre
+    draw.text((20, 20), titre, font=font_title, fill=text_color)
     
-    y_text = 20
-    # Titre indicatif
-    draw.text((20, y_text), f"ETAT SIGMET ({status}) :", font=font, fill=text_color)
-    y_text += 30
-    
-    # Le vrai texte du site
+    # Le texte exact du site
+    lignes = textwrap.wrap(texte_propre, width=65)
+    y = 60
     for ligne in lignes:
-        draw.text((20, y_text), ligne, font=font, fill=text_color)
-        y_text += 25
+        draw.text((20, y), ligne, font=font_main, fill=text_color)
+        y += 25
 
     img.save(NOM_FICHIER)
-    print(f"   [IMAGE] Texte : '{texte_propre}' | Couleur : {status}")
+    print(f"   [IMAGE] Mode {'ALERTE' if is_alerte else 'RAS'} - Texte : {texte_propre[:30]}...")
 
-def recuperer_sigmet_reel():
-    print("--- LECTURE SIGMET EXACTE ---")
+def recuperer_sigmet_strict():
+    print("--- SCAN SIGMET (Logique Stricte) ---")
     
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     
     try:
-        # Login
-        print("> Connexion...")
+        # 1. LOGIN
         driver.get(URL_LOGIN)
         driver.find_element(By.NAME, "login").send_keys(IDENTIFIANT)
         driver.find_element(By.NAME, "password").send_keys(MOT_DE_PASSE)
@@ -88,22 +78,41 @@ def recuperer_sigmet_reel():
         
         time.sleep(5)
 
-        # Extraction
-        print("> Lecture du SPAN...")
+        # 2. LECTURE
+        print("> Recherche du message...")
         try:
-            # On vise la classe texte3 qui contient le mot SIGMET (votre structure HTML)
-            # On prend le texte entier
-            element = driver.find_element(By.XPATH, "//span[@class='texte3'][contains(text(),'SIGMET')]")
-            texte_site = element.text
+            # On cherche tout élément contenant "SIGMET" qui N'EST PAS un lien (pour éviter le menu)
+            xpath = "//*[contains(text(), 'SIGMET')][not(self::a)]"
+            elements = driver.find_elements(By.XPATH, xpath)
             
-            if texte_site:
-                generer_image_brute(texte_site)
-            else:
-                generer_image_brute("Erreur : Balise trouvée mais texte vide.")
+            texte_trouve = None
+            
+            for elem in elements:
+                # On filtre les éléments invisibles ou trop courts
+                if elem.is_displayed() and len(elem.text) > 5:
+                    # On ignore le titre du menu s'il est capté par erreur
+                    if "Type de cartes" in elem.text: continue
+                    
+                    texte_trouve = elem.text
+                    break # On prend le premier trouvé
+            
+            if texte_trouve:
+                print(f"   [LU] : {texte_trouve}")
                 
+                # --- REGLE STRICTE PILOTE ---
+                # Si "Pas de" est présent -> VERT
+                # Sinon -> ROUGE
+                if "Pas de" in texte_trouve:
+                    generer_image(texte_trouve, is_alerte=False)
+                else:
+                    generer_image(texte_trouve, is_alerte=True)
+            else:
+                print("[INFO] Aucun message texte trouvé. Génération image erreur.")
+                generer_image("Information SIGMET illisible (Structure page changée)", True)
+
         except Exception as e:
-            print(f"[INFO] Balise spécifique introuvable : {e}")
-            generer_image_brute("Information SIGMET non trouvée sur l'accueil.")
+            print(f"[ERREUR] {e}")
+            exit(1)
 
     except Exception as e:
         print(f"[CRASH] {e}")
@@ -112,4 +121,4 @@ def recuperer_sigmet_reel():
         driver.quit()
 
 if __name__ == "__main__":
-    recuperer_sigmet_reel()
+    recuperer_sigmet_strict()
