@@ -2,8 +2,8 @@ name: Mise a jour Dossier de Vol
 
 on:
   schedule:
-    - cron: '0,5 * * * *'  # H+00 et H+05
-  workflow_dispatch:      # Bouton manuel
+    - cron: '0,5 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -23,10 +23,9 @@ jobs:
 
       - name: Installation Outils
         run: |
-          # On ajoute 'python-docx' pour générer le Word
           pip install requests selenium webdriver-manager Pillow python-docx
 
-      # --- BLOC METEO (Récupération des images) ---
+      # --- 1. TELECHARGEMENT IMAGES ---
       - name: Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
@@ -51,16 +50,15 @@ jobs:
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python sigmet_france.py
 
-      # --- BLOC DOCUMENT (Assemblage du Word) ---
-      - name: Génération Dossier Word
+      # --- 2. GENERATION DU DOCUMENT ---
+      - name: Création du Word
         run: python create_briefing.py
 
-      # --- SAUVEGARDE FINALE ---
+      # --- 3. SAUVEGARDE ---
       - name: Git Push
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
-          # On ajoute les images PNG et le fichier DOCX
-          git add *.png *.docx
-          git commit -m "Mise a jour Dossier Vol Complet" || echo "Rien a changer"
+          git add *.png Dossier_Vol_Complet.docx
+          git commit -m "Mise a jour Dossier Vol" || echo "Rien a changer"
           git push
