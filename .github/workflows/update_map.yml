@@ -1,9 +1,9 @@
-name: Mise a jour Carte Aero
+name: Mise a jour Dossier de Vol
 
 on:
   schedule:
     - cron: '0,5 * * * *'  # H+00 et H+05
-  workflow_dispatch:
+  workflow_dispatch:      # Bouton manuel
 
 permissions:
   contents: write
@@ -23,41 +23,44 @@ jobs:
 
       - name: Installation Outils
         run: |
-          pip install requests selenium webdriver-manager Pillow
+          # On ajoute 'python-docx' pour générer le Word
+          pip install requests selenium webdriver-manager Pillow python-docx
 
-      # 1. FRONTS
+      # --- BLOC METEO (Récupération des images) ---
       - name: Script FRONTS
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python main.py
 
-      # 2. TEMSI
       - name: Script TEMSI
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python temsi_france.py
 
-      # 3. WINTEM
       - name: Script WINTEM
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python wintem_france.py
 
-      # 4. SIGMET
       - name: Script SIGMET
         env:
           METEO_LOGIN: ${{ secrets.METEO_LOGIN }}
           METEO_PASS: ${{ secrets.METEO_PASS }}
         run: python sigmet_france.py
 
-      # 5. SAUVEGARDE
+      # --- BLOC DOCUMENT (Assemblage du Word) ---
+      - name: Génération Dossier Word
+        run: python create_briefing.py
+
+      # --- SAUVEGARDE FINALE ---
       - name: Git Push
         run: |
           git config --global user.name 'Robot Meteo'
           git config --global user.email 'robot@meteo.fr'
-          git add *.png
-          git commit -m "Update Cartes + SIGMET" || echo "Rien a changer"
+          # On ajoute les images PNG et le fichier DOCX
+          git add *.png *.docx
+          git commit -m "Mise a jour Dossier Vol Complet" || echo "Rien a changer"
           git push
